@@ -1,0 +1,5 @@
+{
+  "key": "${repo-name}",
+  "packageType": "${package-type}",
+  "rclass": "local"
+}

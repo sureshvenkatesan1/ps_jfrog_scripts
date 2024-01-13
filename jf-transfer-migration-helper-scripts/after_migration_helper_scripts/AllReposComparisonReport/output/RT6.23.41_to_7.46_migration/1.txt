@@ -1,0 +1,124 @@
+Tabular Comparison:
+Repo Key                                                         Source repoType Target repoType Source filesCount Target filesCount Used Space (Source)  Used Space (Target)  SpaceInBytes Difference   Remaining Transfer %
+========================================================================================================================================================================================================
+vlex                                                             LOCAL           LOCAL           2464            1486            153.57 GB            97.71 GB             59979218288.64            36.37               
+testability-engineering-einstein-local                           LOCAL           LOCAL           33143           32857           535.84 GB            503.61 GB            34606698987.52002         6.01                
+docker-einstein-local                                            LOCAL           LOCAL           8401            8263            836.26 GB            825.78 GB            11252814315.52002         1.25                
+ubuntu-remote-cache-testing                                      LOCAL           LOCAL           7903            1835            5.85 GB              3.98 GB              2007897210.8799996        31.97               
+corona-docker-local                                              LOCAL           LOCAL           452             440             33.26 GB             32.48 GB             837518622.7200012         2.35                
+ubuntu-einstein-local                                            LOCAL           LOCAL           4060            3371            361.89 GB            361.82 GB            75161927.67999268         0.02                
+pypi-einstein-local                                              LOCAL           LOCAL           331             331             641.91 MB            637.50 MB            4624220.159999967         0.69                
+einstein-matlab-ubuntu-local                                     LOCAL           LOCAL           131             100             273.87 MB            273.45 MB            440401.9200000167         0.15                
+rhel7-einstein-testing-local                                     LOCAL           LOCAL           10              8               12.50 MB             12.49 MB             10485.759999999776        0.08                
+einstein-validated-tools                                         LOCAL           LOCAL           169             169             3.34 GB              3.34 GB              0.0                       0.00                
+engineering-key-local                                            LOCAL           LOCAL           63              63              64.82 KB             64.82 KB             0                         0.00                
+Fornax                                                           LOCAL           LOCAL           50              50              110.86 MB            110.86 MB            0.0                       0.00                
+pillcam-docker                                                   LOCAL           LOCAL           857             858             10.38 GB             10.38 GB             0.0                       0.00                
+pillcam-nuget                                                    LOCAL           LOCAL           244             301             2.16 GB              2.16 GB              0.0                       0.00                
+einstein-v4-ubuntu-local                                         LOCAL           LOCAL           1142            1128            73.59 GB             73.59 GB             0.0                       0.00                
+einstein-test-repo                                               LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+pillcam-npm                                                      LOCAL           LOCAL           3               3               10.76 KB             10.82 KB             0                         0.00                
+rhel7-einstein-local                                             LOCAL           LOCAL           467             465             9.47 GB              9.47 GB              0.0                       0.00                
+conan-einstein-local                                             LOCAL           LOCAL           11              12              121.41 KB            121.42 KB            0                         0.00                
+corona-build-mgmt2                                               LOCAL           LOCAL           58              58              8.79 GB              8.79 GB              0.0                       0.00                
+scholz-build-mgmt                                                LOCAL           LOCAL           83              83              75.83 MB             75.83 MB             0.0                       0.00                
+einstein-manufacturing-support-local                             LOCAL           LOCAL           21              21              101.62 GB            101.62 GB            0.0                       0.00                
+medtronic-or-connect                                             LOCAL           LOCAL           2               2               52.08 MB             52.08 MB             0.0                       0.00                
+openssl                                                          LOCAL           LOCAL           18              18              54.68 MB             54.68 MB             0.0                       0.00                
+yocto-einstein-source-mirror                                     LOCAL           LOCAL           2952            2952            91.43 GB             91.43 GB             0.0                       0.00                
+pillcam-genius-generic                                           LOCAL           LOCAL           772             772             4.18 GB              4.18 GB              0.0                       0.00                
+valleylab-dds-cs                                                 LOCAL           LOCAL           10              10              29.89 MB             29.89 MB             0.0                       0.00                
+einstein-patch-local                                             LOCAL           LOCAL           107             107             1.09 GB              1.09 GB              0.0                       0.00                
+pillcam-python                                                   LOCAL           LOCAL           22              22              702.41 KB            701.85 KB            0                         0.00                
+einstein-simulink-cache-local                                    LOCAL           LOCAL           154             154             428.11 MB            428.11 MB            0.0                       0.00                
+vent-nuget-packages                                              LOCAL           LOCAL           139             139             513.62 MB            513.62 MB            0.0                       0.00                
+renal-test                                                       LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+vlft10-validated-tools                                           LOCAL           LOCAL           19              19              4.24 GB              4.24 GB              0.0                       0.00                
+scholz-os                                                        LOCAL           LOCAL           2               2               531.94 MB            531.94 MB            0.0                       0.00                
+pillcam-generic                                                  LOCAL           LOCAL           12              12              1.63 GB              1.63 GB              0.0                       0.00                
+vent-connectivity-packages                                       LOCAL           LOCAL           23              23              2.02 GB              2.02 GB              0.0                       0.00                
+einstein-npm-local                                               LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+corona-tools                                                     LOCAL           LOCAL           60              60              77.94 GB             77.94 GB             0.0                       0.00                
+pillcam-genius-python                                            LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+sqlite-viewer                                                    LOCAL           LOCAL           36              36              3.97 MB              3.97 MB              0.0                       0.00                
+pillcam-genius-docker                                            LOCAL           LOCAL           56318           56319           430.94 GB            430.94 GB            0.0                       0.00                
+oasis                                                            LOCAL           LOCAL           15              15              1.55 GB              1.55 GB              0.0                       0.00                
+software-verification-einstein-local                             LOCAL           LOCAL           456             456             10.05 MB             10.05 MB             0.0                       0.00                
+hugo-released-einstein-local                                     LOCAL           LOCAL           56003           56003           2.39 TB              2.39 TB              0.0                       0.00                
+NVD-einstein-mirror                                              LOCAL           LOCAL           73              73              1.17 GB              1.17 GB              0.0                       0.00                
+virt-einstein-local                                              LOCAL           LOCAL           5               5               1.76 GB              1.76 GB              0.0                       0.00                
+vent-docker-registry                                             LOCAL           LOCAL           1587            1588            302.13 GB            302.13 GB            0.0                       0.00                
+geniusops-helm-backup                                            LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+engineering-einstein-local-archive                               LOCAL           LOCAL           425             425             9.36 GB              9.36 GB              0.0                       0.00                
+gateway-target-dev                                               LOCAL           LOCAL           6               6               1.91 GB              1.91 GB              0.0                       0.00                
+dds-libraries                                                    LOCAL           LOCAL           156             156             3.46 GB              3.46 GB              0.0                       0.00                
+incite-nuget                                                     LOCAL           LOCAL           56              56              1.54 MB              1.54 MB              0.0                       0.00                
+PL-M-secret                                                      LOCAL           LOCAL           2               2               746 bytes            746 bytes            0.0                       0.00                
+engineering-soup-einstein-local                                  LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+einstein-v3-ubuntu-local                                         LOCAL           LOCAL           1075            1029            74.07 GB             74.07 GB             0.0                       0.00                
+ubuntu-einstein-exp-local                                        LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+rhel7-source-einstein-local                                      LOCAL           LOCAL           115             113             8.75 GB              8.75 GB              0.0                       0.00                
+fx8                                                              LOCAL           LOCAL           5               5               330.19 MB            330.19 MB            0.0                       0.00                
+gl-ein-test                                                      LOCAL           LOCAL           39              40              4.93 GB              4.93 GB              0.0                       0.00                
+phoenix-tools                                                    LOCAL           LOCAL           8               8               6.66 GB              6.66 GB              0.0                       0.00                
+phoenix-vm                                                       LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+pillcam-ai-sw-nuget                                              LOCAL           LOCAL           24              24              1.54 GB              1.54 GB              0.0                       0.00                
+incite-log-retriever-npm                                         LOCAL           LOCAL           10              10              26.69 MB             26.69 MB             0.0                       0.00                
+ubuntu-einstein-exp2-local                                       LOCAL           LOCAL           35              0               39.90 KB             0 bytes              0.0                       0.00                
+engineering-einstein-local                                       LOCAL           LOCAL           271267          271267          4.73 TB              4.73 TB              0.0                       0.00                
+Fornax-info                                                      LOCAL           LOCAL           72              72              1.95 GB              1.95 GB              0.0                       0.00                
+einstein-devops-local                                            LOCAL           LOCAL           2               2               11.26 KB             11.26 KB             0                         0.00                
+production-release-einstein-local                                LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+phoenix-reports                                                  LOCAL           LOCAL           3               3               11.21 MB             11.21 MB             0.0                       0.00                
+einstein-esat-script-packages                                    LOCAL           LOCAL           13              13              342.76 MB            342.76 MB            0.0                       0.00                
+PeterTest                                                        LOCAL           LOCAL           14              14              37.38 MB             37.38 MB             0.0                       0.00                
+hugo-archived-einstein-local                                     LOCAL           LOCAL           15142           15142           228.13 GB            228.13 GB            0.0                       0.00                
+vent-build-artifacts                                             LOCAL           LOCAL           597             597             54.74 GB             54.74 GB             0.0                       0.00                
+incite-log-retriever-gradle                                      LOCAL           LOCAL           8               8               261.79 MB            261.79 MB            0.0                       0.00                
+einstein-bamboo-data-local                                       LOCAL           LOCAL           3805            3805            17.66 GB             17.66 GB             0.0                       0.00                
+Linecheck                                                        LOCAL           LOCAL           8               8               1.62 GB              1.62 GB              0.0                       0.00                
+phoenix-build-mgmt                                               LOCAL           LOCAL           278             278             65.54 GB             65.54 GB             0.0                       0.00                
+corona-builds                                                    LOCAL           LOCAL           3798            3798            253.76 KB            253.76 KB            0                         0.00                
+casey-test                                                       LOCAL           LOCAL           4               4               4.25 GB              4.25 GB              0.0                       0.00                
+installers-einstein-local                                        LOCAL           LOCAL           192             192             39.81 GB             39.81 GB             0.0                       0.00                
+ubuntu-einstein-staging-local                                    LOCAL           LOCAL           122             0               107.62 KB            0 bytes              0.0                       0.00                
+incite-docker                                                    LOCAL           LOCAL           17              18              701.21 MB            701.21 MB            0.0                       0.00                
+release-einstein-local-archive                                   LOCAL           LOCAL           0               0               0 bytes              0 bytes              0.0                       0.00                
+vent-build-environment                                           LOCAL           LOCAL           11              11              1.18 GB              1.18 GB              0.0                       0.00                
+phoenix-os                                                       LOCAL           LOCAL           107             107             56.88 GB             56.88 GB             0.0                       0.00                
+pillcam                                                          LOCAL           LOCAL           261             261             929.02 MB            929.02 MB            0.0                       0.00                
+test-release-einstein-local                                      LOCAL           LOCAL           216             216             40.15 GB             40.15 GB             0.0                       0.00                
+gl-docker-registry                                               LOCAL           LOCAL           1517            1518            184.41 GB            184.41 GB            0.0                       0.00                
+docker-einstein-local-archive                                    LOCAL           LOCAL           0               1               0 bytes              16 bytes             -16.0                     0.00                
+pillcam-genius-helm                                              LOCAL           LOCAL           389             389             2.10 MB              2.11 MB              -10485.759999999776       -0.48               
+pillcam-nuget-genius                                             LOCAL           LOCAL           234             347             161.38 MB            161.72 MB            -356515.8400000036        -0.21               
+pillcam-genius-nuget                                             LOCAL           LOCAL           7661            11712           999.38 MB            1.01 GB              -36553359.360000014       -3.49               
+windows-einstein-local                                           LOCAL           LOCAL           254             263             236.66 GB            236.87 GB            -225485783.04000854       -0.09               
+corona-os                                                        LOCAL           LOCAL           2156            2171            142.88 GB            143.20 GB            -343597383.6799927        -0.22               
+corona-build-mgmt                                                LOCAL           LOCAL           640             664             130.35 GB            133.04 GB            -2888365506.5599976       -2.06               
+artifactory-build-info                                           LOCAL           LOCAL           27463           607745          642.76 MB            6.49 GB              -6294601728.0             -933.94             
+windows-transient-storage                                        LOCAL           LOCAL           36              47              301.40 GB            454.26 GB            -164132175216.64          -50.72              
+docker-einstein-local-test                                       LOCAL           LOCAL           3929            6296            310.95 GB            509.20 GB            -212869316608.0           -63.76              
+release-einstein-local                                           LOCAL           LOCAL           109854          174064          3.69 TB              4.14 TB              -494780232499.1997        -12.20              
+engineering-unit-test-einstein-local                             LOCAL           LOCAL           6374            13244           615.60 GB            1.24 TB              -702398951587.84          -106.26             
+
+Repos with 'usedSpaceInBytes' Difference > 0 (9 repos):
+corona-docker-local;docker-einstein-local;einstein-matlab-ubuntu-local;pypi-einstein-local;rhel7-einstein-testing-local;testability-engineering-einstein-local;ubuntu-einstein-local;ubuntu-remote-cache-testing;vlex
+
+
+(8) Repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0 :
+nohup sh -c 'export JFROG_CLI_LOG_LEVEL=DEBUG;JFROG_CLI_ERROR_HANDLING=panic;jf rt transfer-files sourcejpd targetjpd --include-repos "corona-docker-local;docker-einstein-local;einstein-matlab-ubuntu-local;rhel7-einstein-testing-local;testability-engineering-einstein-local;ubuntu-einstein-local;ubuntu-remote-cache-testing;vlex"' &
+
+
+(1) Repos with same 'filesCount' but 'usedSpaceInBytes' > 0 :
+nohup sh -c 'export JFROG_CLI_LOG_LEVEL=DEBUG;JFROG_CLI_ERROR_HANDLING=panic;jf rt transfer-files sourcejpd targetjpd --include-repos "pypi-einstein-local"' &
+
+
+Not enough repos to give to customer. Migrate all 8 repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0:
+
+
+4 repos : 
+nohup sh -c 'export JFROG_CLI_LOG_LEVEL=DEBUG;JFROG_CLI_ERROR_HANDLING=panic;jf rt transfer-files sourcejpd targetjpd --include-repos "corona-docker-local;docker-einstein-local;einstein-matlab-ubuntu-local;rhel7-einstein-testing-local"' &
+
+4 repos : 
+nohup sh -c 'export JFROG_CLI_LOG_LEVEL=DEBUG;JFROG_CLI_ERROR_HANDLING=panic;jf rt transfer-files sourcejpd targetjpd --include-repos "testability-engineering-einstein-local;ubuntu-einstein-local;ubuntu-remote-cache-testing;vlex"' &
