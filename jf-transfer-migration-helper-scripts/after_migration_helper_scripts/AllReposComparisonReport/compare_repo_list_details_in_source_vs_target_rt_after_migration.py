@@ -51,7 +51,10 @@ def extract_repo_details(repo_keys, source_data, target_data):
             'source': source_repo_details,
             'target': target_repo_details
         })
-    return repo_details_of_interest
+    # Filter out entries with None for both repo['source'] and repo['target']
+    filtered_repo_details = [repo for repo in repo_details_of_interest if repo['source'] is not None and repo['target'] is not None]
+
+    return filtered_repo_details
 
 
 #To calculate the space difference based on the presence of "usedSpaceInBytes" or "usedSpace" and handle different
@@ -67,8 +70,11 @@ def convert_used_space_to_bytes(used_space_str):
         return float(used_space_str.replace(" TB", "")) * 1024 * 1024 * 1024 * 1024
     elif "bytes" in used_space_str:
         return float(used_space_str.replace(" bytes", ""))
+    elif "KB" in used_space_str:
+        return float(used_space_str.replace(" KB", "")) * 1024
     else:
         return 0
+
 def generate_comparison_output(repo_details_of_interest, args):
     comparison_output_tabular = []
     comparison_output_tabular.append("{:<64} {:<15} {:<15} {:<15} {:<15} {:<20} {:<20} {:<25} {:<20}".format("Repo Key",
@@ -99,14 +105,24 @@ def generate_comparison_output(repo_details_of_interest, args):
         key=lambda repo: (
                 (
                     int(repo['source'].get('usedSpaceInBytes', '0'))
-                    if 'usedSpaceInBytes' in repo['source']
-                    else convert_used_space_to_bytes(repo['source'].get('usedSpace', '0'))
+                    if repo['source'] and repo['target'] and 'usedSpaceInBytes' in repo['source']
+                    # else convert_used_space_to_bytes(repo['source'].get('usedSpace', '0'))
+                    else (
+                        convert_used_space_to_bytes(repo['source'].get('usedSpace', '0'))
+                        if repo['source'] is not None
+                        else 0  # Default value if repo['target'] is None
+                    )
                 )
                 -
                 (
                     int(repo['target'].get('usedSpaceInBytes', '0'))
-                    if 'usedSpaceInBytes' in repo['source']
-                    else convert_used_space_to_bytes(repo['target'].get('usedSpace', '0'))
+                    if repo['source'] and repo['target'] and 'usedSpaceInBytes' in repo['source']
+                    # else convert_used_space_to_bytes(repo['target'].get('usedSpace', '0'))
+                    else (
+                        convert_used_space_to_bytes(repo['target'].get('usedSpace', '0'))
+                        if repo['target'] is not None
+                        else 0  # Default value if repo['target'] is None
+                    )
                 )
         ),
         reverse=True
@@ -177,14 +193,14 @@ def print_alternative_transfer_method(output_file,big_source_repos, source_serve
     if not big_source_repos:
         output_file.write("\n\n\nNo big source repositories to transfer.\n")
         return
-    
+
     output_file.write("\n\n\nAlternative Transfer Method for ({}) Big Source Repositories:\n\n".format(len(big_source_repos)))
     # for repo in big_source_repos:
     #     output_file.write(f"\nTransfer {repo} from {source_server_id} to {target_server_id}")
     screen_commands = generate_screen_commands(big_source_repos, source_server_id, target_server_id)
 
     # Write screen commands to a file
-    # This code will generate screen commands for each repository in big_source_repos, create subfolders for each screen session, 
+    # This code will generate screen commands for each repository in big_source_repos, create subfolders for each screen session,
     # and write the screen commands to a file. The session names (upload-session1, upload-session2, etc.) are based on the index of the repository in the list.
 
     # with open("screen_commands.txt", "w") as output_file:
@@ -204,7 +220,7 @@ def bucket_repositories(repos_to_bucket, args):
     if num_buckets == 0:
         # Handle the case where num_buckets is 0
         return [[]]  # Create at least one bucket with an empty list
-    
+
     repos_per_bucket = len(repos_to_bucket) // num_buckets
     buckets = [[] for _ in range(num_buckets)]
 
@@ -219,7 +235,7 @@ def bucket_repositories(repos_to_bucket, args):
         bucket_size = repos_per_bucket + 1 if bucket_index < remainder else repos_per_bucket
         buckets[bucket_index].extend(repos_to_bucket[index:index + bucket_size])
         index += bucket_size
-    
+
     return buckets
 
 def write_output(output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets):
@@ -234,12 +250,12 @@ def write_output(output_file, comparison_output_tabular, repos_with_space_differ
     # Print the commands for the big repos
     if args.print_alternative_transfer:
         print_alternative_transfer_method(output_file, big_source_repos, args.source_server_id, args.target_server_id)
-        
+
     # Now print the commands for the small / all repos if ot using alternate commands to transfer
     if not buckets:
         print("Warning: There are no small repos for JFrog PS to migrate.")
         output_file.write(f"\n\nWarning: There are no small repos for JFrog PS to migrate.")
-    else:        
+    else:
         output_file.write("\n\n\n({}) Repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0 :\n".format(len(repos_with_both_differences)))
         output_file.write("nohup sh -c 'export JFROG_CLI_LOG_LEVEL=DEBUG;JFROG_CLI_ERROR_HANDLING=panic;")
         output_file.write(f"jf rt transfer-files {args.source_server_id} {args.target_server_id} --include-repos \"")
@@ -256,10 +272,10 @@ def write_output(output_file, comparison_output_tabular, repos_with_space_differ
         output_file.write(f"jf rt transfer-files {args.source_server_id} {args.target_server_id} --include-repos \"")
         output_file.write(';'.join(repos_with_space_diff_but_same_file_count))
         output_file.write("\"' &")
-                
+
         total_repos_PS_will_migrate = len(repos_with_both_differences) - args.total_repos_customer_will_migrate
         if ((args.total_repos_customer_will_migrate > 0) and ( total_repos_PS_will_migrate > 0 ) ):
-            # There are more repos  we can ask customer to migrate. 
+            # There are more repos  we can ask customer to migrate.
             # The remaininng PS can migrate
             output_file.write(f"\n\n\nMigrate below { total_repos_PS_will_migrate } repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0:\n")
             print("==================================================================")
@@ -271,7 +287,7 @@ def write_output(output_file, comparison_output_tabular, repos_with_space_differ
                 output_file.write(f"jf rt transfer-files {args.source_server_id} {args.target_server_id} --include-repos \"")
                 output_file.write(';'.join(bucket))
                 output_file.write("\"' &")
-                
+
             print("\n\n==================================================================")
             print(f"{len(repos_with_both_differences[-args.total_repos_customer_will_migrate:])} total_repos_customer_will_migrate is ->  {repos_with_both_differences[-args.total_repos_customer_will_migrate:]}")
             print("\n==================================================================")
@@ -330,6 +346,11 @@ def main():
     repo_keys = read_repo_keys(args.repos)
 
     repo_details_of_interest = extract_repo_details(repo_keys, source_data, target_data)
+    # Print repo['source'] and repo['target'] for debugging
+    # for repo in repo_details_of_interest:
+    # print(f"repo['source']: {repo['source']} ---- repo['target']: {repo['target']}")
+
+
     comparison_output_tabular, repos_with_space_difference, repos_with_both_differences , big_source_repos = generate_comparison_output(repo_details_of_interest, args)
     print("\n\n==================================================================")
     print(f"{len(repos_with_space_difference)} repos_with_space_difference is ->  {repos_with_space_difference}")
@@ -348,10 +369,10 @@ def main():
             small_repos_with_both_differences.sort()
         print(f"{len(small_repos_with_both_differences)} small_repos_with_both_differences is ->  {small_repos_with_both_differences}")
         print("==================================================================\n\n")
-        
+
         # Exclude the last n repos based on the --total_repos_customer_will_migrate argument , if there are more repos
         if len(small_repos_with_both_differences) - args.total_repos_customer_will_migrate > 0:
-            # If there are more repos  then we can give the last  total_repos_customer_will_migrate to customer to migrate. 
+            # If there are more repos  then we can give the last  total_repos_customer_will_migrate to customer to migrate.
             # The remaininng PS can migrate
             repos_to_bucket = small_repos_with_both_differences[:len(small_repos_with_both_differences) - args.total_repos_customer_will_migrate]
         else:
@@ -368,7 +389,7 @@ def main():
     else:
         # Exclude the last n repos based on the --total_repos_customer_will_migrate argument , if there are more repos
         if len(repos_with_both_differences) - args.total_repos_customer_will_migrate > 0:
-            # If there are more repos  then we can give the last  total_repos_customer_will_migrate to customer to migrate. 
+            # If there are more repos  then we can give the last  total_repos_customer_will_migrate to customer to migrate.
             # The remaininng PS can migrate
             repos_to_bucket = repos_with_both_differences[:len(repos_with_both_differences) - args.total_repos_customer_will_migrate]
         else:
