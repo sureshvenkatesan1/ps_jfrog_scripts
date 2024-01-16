@@ -139,7 +139,10 @@ def write_artifact_stats_from_source_data(source_data, unique_uris, output_file)
         if matching_entry:
             # Extract the "artifactory.stats" timestamp if available, otherwise use a default timestamp of "Jan 1 , 1900"
             # timestamp_utc = response_data["mdTimestamps"].get("artifactory.stats") or response_data["lastModified"]
-            timestamp_utc = matching_entry["mdTimestamps"].get("artifactory.stats", "1900-01-01T00:00:00.000Z")
+
+            # retrieve the timestamp from nested dictionaries within matching_entry. It starts by looking for "mdTimestamps" and
+            # then within that for "artifactory.stats". If both are missing, it finally defaults to "1900-01-01T00:00:00.000Z" as the timestamp
+            timestamp_utc = matching_entry.get("mdTimestamps", {}).get("artifactory.stats", "1900-01-01T00:00:00.000Z") or "1900-01-01T00:00:00.000Z"
 
             # Append to the list
             artifact_info.append((uri, timestamp_utc))
