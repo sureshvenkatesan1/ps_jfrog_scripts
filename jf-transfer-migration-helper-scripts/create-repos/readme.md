@@ -1,7 +1,8 @@
-1. Request the customer to provide a list of repositories for synchronization during phase 1. This approach is recommended because transferring all repositories (especially if there are hundreds of them) from the source (refered to as NCR) to the target Artifactory instance ( refered to NCRAtleos) is a time-consuming process.
+1. During phase1, kindly ask the customer to furnish a list of repositories for synchronization. 
 
-Customer gave us the `NCRAtleos_HighPriorityRepositories_All.08222023`.  
-Sort the  NCRAtleos_HighPriorityRepositories_All.08222023 repos:
+This approach is advised due to the time-consuming nature of transferring all repositories, especially if there is a large number of them, from the source (referred to as NCR) to the target Artifactory instance (referred to as NCRAtleos). The customer has provided us with the list `NCRAtleos_HighPriorityRepositories_All.08222023`.
+
+Next Sort the  NCRAtleos_HighPriorityRepositories_All.08222023 repos:
 ```
 sort -o ncr/NCRAtleos_HighPriorityRepositories_All.08222023 ncr/NCRAtleos_HighPriorityRepositories_All.08222023
 ```
@@ -16,9 +17,9 @@ sort -o ncr/all_repositories.list ncr/all_repositories.list
 ```
 
 
-The `comm` utility provides the `-23` option, which serves to suppress the output of lines unique to the first file (-2) and lines common to both files (-1). This results in displaying only the lines that are unique to the first file.
+The `comm` utility provides the `-23` option, which serves to suppress the output of lines unique to the second file (-2) and lines common to both files (-3). This results in displaying only the lines that are unique to the first file.
 
-Additionally, it's worth noting that the `comm` utility offers the `-12` option, which suppresses the output of lines unique to FILE1 (-1) and lines unique to FILE2 (-2), retaining only the lines that are common between both files.
+Additionally, it's worth noting that the `comm` utility offers the `-12` option, which suppresses the output of lines unique to first file (-1) and lines unique to second file (-2), retaining only the lines that are common between both files.
 
 To check for the absence of any of these repositories in the `ncr/all_repositories.list`, I have verified that there are no repositories in the `ncr/NCRAtleos_HighPriorityRepositories_All.08222023` file that are not present in `ncr/all_repositories.list` using the following command:
 
@@ -295,5 +296,68 @@ bash ./delete_artifacts_in_repo_in_batches.sh example-repo-local 1000 ncr
 ```
 
 ---
+### Create missing repos in target Artifactory:
+
+You can extract  the local, remote , virtual repos from the source Artifactory as separate lists using the following:
+```bash
+jf c use source-id
+jf rt curl  -X GET "/api/repositories?type=local"  | jq -r '.[] | .key' >> all_local_repos_in_source.txt
+sort -o all_local_repos_in_source.txt all_local_repos_in_source.txt
+
+jf rt curl  -X GET "/api/repositories?type=remote"  | jq -r '.[] | .key' >> all_remote_repos_in_source.txt
+sort -o all_remote_repos_in_source.txt all_remote_repos_in_source.txt
+
+jf rt curl  -X GET "/api/repositories?type=virtual"  | jq -r '.[] | .key' >> all_virtual_repos_in_source.txt
+sort -o all_virtual_repos_in_source.txt all_virtual_repos_in_source.txt
+```
+
+Similarly extract  the local, remote , virtual repos from the target Artifactory as seperate lists using the following:
+```bash
+jf c use target-id
+jf rt curl  -X GET "/api/repositories?type=local"  | jq -r '.[] | .key' >> all_local_repos_in_target.txt
+sort -o all_local_repos_in_target.txt all_local_repos_in_target.txt
+
+jf rt curl  -X GET "/api/repositories?type=remote"  | jq -r '.[] | .key' >> all_remote_repos_in_target.txt
+sort -o all_remote_repos_in_target.txt all_remote_repos_in_target.txt
+
+jf rt curl  -X GET "/api/repositories?type=virtual"  | jq -r '.[] | .key' >> all_virtual_repos_in_target.txt
+sort -o all_virtual_repos_in_target.txt all_virtual_repos_in_target.txt
+```
+
+Find local, remote , virtual repos that are in the  source Artifactory but not in the target Artifactory:
+
+```bash
+comm -23 <(sort all_local_repos_in_source.txt) <(sort all_local_repos_in_target.txt) > local_repos_to_create.txt
+comm -23 <(sort all_remote_repos_in_source.txt) <(sort all_remote_repos_in_target.txt) > remote_repos_to_create.txt
+comm -23 <(sort all_virtual_repos_in_source.txt) <(sort all_virtual_repos_in_target.txt) > virtual_repos_to_create.txt
+```
+Create the missing repos using script similar to:
+```text
+mkdir output
+cat local_repos_to_create.txt |  while read line
+do
+REPO=$line
+echo "Getting configuration for "$REPO
+
+        jf rt curl api/repositories/$REPO --server-id=$source >> output/$REPO-config.json
+        echo creating repo -- $REPO on $target
+        data=$( jf rt curl  -X PUT api/repositories/$REPO -H "Content-Type: application/json" -T output/$REPO-config.json --server-id=$target -s | grep message | xargs)
+        echo $data
+        if [[ $data == *"message"*  ]];then
+          echo "$REPO" >> output/error-creating-these-repos.txt
+        fi
+done
+```
 
 
+or
+
+It can be created just using the "jf rt transfer-config-merge" .
+
+You can use shell command to read all lines in a file and print them in a single line with a semi-colon separator
+```text
+semicolon_separated_list_of_repos=$(tr '\n' ';' < local_repos_to_create.txt)
+
+jf rt transfer-config-merge source-id target-id --include-repos "$semicolon_separated_list_of_repos" --include-projects ""
+```
+Simialrly create the remote and virtual repos in remote_repos_to_create.txt and virtual_repos_to_create.txt

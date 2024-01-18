@@ -3,7 +3,7 @@
 ################################################################################################## 
 
 source_id="${1:?Source ID for JF CLI.}"
-target_id="${1:?Target ID for JF CLI.}"
+target_id="${2:?Target ID for JF CLI.}"
 
 
 # #### Sync all golbal policies and no project polices.
