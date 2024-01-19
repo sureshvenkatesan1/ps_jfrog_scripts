@@ -360,4 +360,8 @@ semicolon_separated_list_of_repos=$(tr '\n' ';' < local_repos_to_create.txt)
 
 jf rt transfer-config-merge source-id target-id --include-repos "$semicolon_separated_list_of_repos" --include-projects ""
 ```
-Simialrly create the remote and virtual repos in remote_repos_to_create.txt and virtual_repos_to_create.txt
+
+But the above 2 approaches does not help in creating the remote repos ( if the repo has a password).
+So the alternative way to create repos ( especially the remote repos)  is [create-repos-during-migration.sh](create-repos-during-migration.sh) as explained in [create-repos-during-migration.md](create-repos-during-migration.md)
+
+Similarly create the remote and virtual repos in remote_repos_to_create.txt and virtual_repos_to_create.txt
