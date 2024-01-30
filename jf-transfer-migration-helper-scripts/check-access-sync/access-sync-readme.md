@@ -139,11 +139,15 @@ jf c use ncratleostest
 curl -H "Authorization: Bearer  $MYTOKEN"  -XGET "https://ncratleostest.jfrog.io/access/api/v1/tokens"  | jq -r '.tokens[] | .token_id'  >> ncratleostest/token.list
 sort -o ncratleostest/token.list ncratleostest/token.list
 ```
-Compare to find tokens in ncratleostest (FILE1) that is not in ncr (FILE2):
+Compare to find tokens in source  (FILE1 i.e ncratleostest ) that is not in target (FILE2 i.e ncr):
 ```text
 comm -23 ncratleostest/token.list ncr/token.list  > ncratleostest/tokens_not_synced_yet.txt
 ```
 
+Find the tokens created for a user `fiddoqintegration` in a JPD:
+```text
+curl -H "Authorization: Bearer  $MYTOKEN"  -XGET "https://ncratleostest.jfrog.io/access/api/v1/tokens" | grep -B 1 -A 3
+```
 
 ---
 
