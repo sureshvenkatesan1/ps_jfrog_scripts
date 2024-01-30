@@ -116,9 +116,10 @@ sort -o ncratleostest/permissions.list ncratleostest/permissions.list
 
 Compare permissions between ncr and ncratleostest
 ```
-comm -13 ncratleostest/permissions.list ncr/permissions.list  > ncratleostest/permissions_not_synced_yet.txt
+comm -23 ncratleostest/permissions.list ncr/permissions.list  > ncratleostest/permissions_not_synced_yet.txt
 ```
 Note: comm is preferable over diff in macos
+-1, -2, -3 options of `comm` utility suppress the corresponding columns of output. -1 suppresses lines unique to FILE1, -2 suppresses lines unique to FILE2, and -3 suppresses lines common to both files.
 
 ---
 4. No need to diff the tokens as the JWT access tokens will have the old email domain and will be invalid anyway.
@@ -138,6 +139,11 @@ jf c use ncratleostest
 curl -H "Authorization: Bearer  $MYTOKEN"  -XGET "https://ncratleostest.jfrog.io/access/api/v1/tokens"  | jq -r '.tokens[] | .token_id'  >> ncratleostest/token.list
 sort -o ncratleostest/token.list ncratleostest/token.list
 ```
+Compare to find tokens in ncratleostest (FILE1) that is not in ncr (FILE2):
+```text
+comm -23 ncratleostest/token.list ncr/token.list  > ncratleostest/tokens_not_synced_yet.txt
+```
+
 
 ---
 

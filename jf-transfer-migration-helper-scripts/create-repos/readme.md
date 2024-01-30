@@ -21,6 +21,8 @@ The `comm` utility provides the `-23` option, which serves to suppress the outpu
 
 Additionally, it's worth noting that the `comm` utility offers the `-12` option, which suppresses the output of lines unique to first file (-1) and lines unique to second file (-2), retaining only the lines that are common between both files.
 
+-1, -2, -3 options of `comm` utility suppress the corresponding columns of output. -1 suppresses lines unique to FILE1, -2 suppresses lines unique to FILE2, and -3 suppresses lines common to both files.
+
 To check for the absence of any of these repositories in the `ncr/all_repositories.list`, I have verified that there are no repositories in the `ncr/NCRAtleos_HighPriorityRepositories_All.08222023` file that are not present in `ncr/all_repositories.list` using the following command:
 
 ```bash
