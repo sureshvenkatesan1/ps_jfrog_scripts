@@ -18,9 +18,9 @@ set -u
 ### Get Arguments
 SOURCE_JPD_URL="${1:?please enter JPD URL. ex - https://ramkannan.jfrog.io}"
 TARGET_JPD_URL="${2:?please enter JPD URL. ex - http://35.208.78.203:8082}"
-USER_NAME="${3:?please provide the username in JPD . ex - admin}"
-SOURCE_JPD_AUTH_TOKEN="${4:?please provide the identity token}"
-TARGET_JPD_AUTH_TOKEN="${5:?please provide the identity token}"
+
+SOURCE_JPD_AUTH_TOKEN="${3:?please provide the identity token}"
+TARGET_JPD_AUTH_TOKEN="${4:?please provide the identity token}"
 
 rm -rf *.txt
 rm -rf *.json
@@ -28,15 +28,15 @@ rm -rf *.json
 grouplist="group_internal_list.txt"
 
 ### define variables
-curl -XGET -u $USER_NAME:$SOURCE_JPD_AUTH_TOKEN "${SOURCE_JPD_URL}/artifactory/api/security/groups" -s | jq -rc '.[] | select( .realm == "internal" ) | .name' | sort > $grouplist
+curl -XGET -H "Authorization: Bearer $SOURCE_JPD_AUTH_TOKEN" "${SOURCE_JPD_URL}/access/api/v2/groups" -s  |  jq -rc '.groups.[] | .group_name' | sort > $grouplist
 
 ### Run the curl API 
 while IFS= read -r groupname; do
     echo -e "Download JSON for ====> $groupname <===="
-    curl -XGET -u $USER_NAME:$SOURCE_JPD_AUTH_TOKEN "${SOURCE_JPD_URL}/artifactory/api/security/groups/$groupname" -s > "$groupname.json"
+    curl -XGET -H "Authorization: Bearer $SOURCE_JPD_AUTH_TOKEN" "${SOURCE_JPD_URL}/access/api/v2/groups/$groupname" -s > "$groupname.json"
     echo -e "\n"
     echo -e "Uploading group ====> $groupname <==== to ${TARGET_JPD_URL}"
-    curl -XPUT -u $USER_NAME:$TARGET_JPD_AUTH_TOKEN "${TARGET_JPD_URL}/artifactory/api/security/groups/$groupname" -d @"$groupname.json" -s -H 'Content-Type: application/json'
+    curl -XPOST -H "Authorization: Bearer $TARGET_JPD_AUTH_TOKEN" "${TARGET_JPD_URL}/access/api/v2/groups/$groupname" -d @"$groupname.json" -s -H 'Content-Type: application/json'
     echo -e "\n"
 done < $grouplist
 

@@ -7,13 +7,12 @@ This Bash script is designed to help you automate the process of creating securi
 To use this script, follow the sample command below:
 
 ```bash
-./createGroup_SH_SaaS.sh <SOURCE_JPD_URL> <TARGET_JPD_URL> <USER_NAME> <SOURCE_JPD_AUTH_TOKEN> <TARGET_JPD_AUTH_TOKEN>
+./createGroup_SH_SaaS.sh <SOURCE_JPD_URL> <TARGET_JPD_URL>  <SOURCE_JPD_AUTH_TOKEN> <TARGET_JPD_AUTH_TOKEN>
 ```
 
 Replace the placeholders with the following values:
 - `<SOURCE_JPD_URL>`: The URL of the source JFrog Platform Deployment (JPD) instance. Example: `https://ramkannan.jfrog.io`
 - `<TARGET_JPD_URL>`: The URL of the target JPD instance where you want to create the security groups. Example: `http://35.208.78.203:8082`
-- `<USER_NAME>`: Your username in the source JPD instance. Example: `admin`
 - `<SOURCE_JPD_AUTH_TOKEN>`: The identity token for authentication in the source JPD instance.
 - `<TARGET_JPD_AUTH_TOKEN>`: The identity token for authentication in the target JPD instance.
 

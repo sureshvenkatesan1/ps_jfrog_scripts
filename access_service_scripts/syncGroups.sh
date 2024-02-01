@@ -10,7 +10,7 @@ set -u
 ### Get Arguments
 SOURCE_JPD_URL="${1:?please enter JPD URL. ex - https://ramkannan.jfrog.io}"
 TARGET_JPD_URL="${2:?please enter JPD URL. ex - http://35.208.78.203:8082}"
-USER_NAME="${3:?please provide the username in JPD . ex - admin}"
+
 SOURCE_JPD_AUTH_TOKEN="${4:?please provide the identity token}"
 TARGET_JPD_AUTH_TOKEN="${5:?please provide the identity token}"
 
@@ -23,25 +23,26 @@ addGroupsList="group_list_to_add.txt"
 deleteGroupsList="group_list_to_delete.txt"
 
 ### define variables
-curl -XGET -u $USER_NAME:$SOURCE_JPD_AUTH_TOKEN "${SOURCE_JPD_URL}/artifactory/api/security/groups" -s | jq -rc '.[] | select( .realm == "internal" ) | .name' | sort > $groupListSource
-curl -XGET -u $USER_NAME:$TARGET_JPD_AUTH_TOKEN "${TARGET_JPD_URL}/artifactory/api/security/groups" -s | jq -rc '.[] | select( .realm == "internal" ) | .name' | sort > $groupListTarget
+curl -XGET -H "Authorization: Bearer $SOURCE_JPD_AUTH_TOKEN" "${SOURCE_JPD_URL}/access/api/v2/groups" -s  |  jq -rc '.groups.[] | .group_name' | sort > $groupListSource
+curl -XGET -H "Authorization: Bearer $TARGET_JPD_AUTH_TOKEN" "${TARGET_JPD_URL}/access/api/v2/groups" -s  |  jq -rc '.groups.[] | .group_name' | sort > $groupListTarget
+
 diff -u <(sort $groupListTarget) <(sort $groupListSource) --suppress-common-lines | grep '^+' | sed 1d | sed 's/^.//' > $addGroupsList || true
 diff -u <(sort $groupListTarget) <(sort $groupListSource) --suppress-common-lines | grep '^-' | sed 1d | sed 's/^.//' > $deleteGroupsList || true
 
 ### Run the curl API 
-while IFS= read -r username; do
-    echo -e "Download JSON for ====> $username <===="
-    curl -XGET -u $USER_NAME:$SOURCE_JPD_AUTH_TOKEN "${SOURCE_JPD_URL}/artifactory/api/security/group/$username" -s > "$username.json"
+while IFS= read -r groupname; do
+    echo -e "Download JSON for group ====> $groupname <===="
+    curl -XGET -H "Authorization: Bearer $SOURCE_JPD_AUTH_TOKEN" "${SOURCE_JPD_URL}/access/api/v2/groups/$groupname" -s > "$groupname.json"
     echo -e "\n"
-    echo -e "Uploading user ====> $username <==== to ${TARGET_JPD_URL}"
-    curl -XPUT -u $USER_NAME:$TARGET_JPD_AUTH_TOKEN "${TARGET_JPD_URL}/artifactory/api/security/group/$username" -d @"$username.json" -s -H 'Content-Type: application/json'
+    echo -e "Uploading group ====> $groupname <==== to ${TARGET_JPD_URL}"
+    curl -XPOST -H "Authorization: Bearer $TARGET_JPD_AUTH_TOKEN" "${TARGET_JPD_URL}/access/api/v2/groups/$groupname" -d @"$groupname.json" -s -H 'Content-Type: application/json'
     echo -e "\n"
 done < $addGroupsList
 
-while IFS= read -r username; do
-    echo -e "Deleting user ====> $username <==== in ${TARGET_JPD_URL}"
-    curl -XDELETE -u $USER_NAME:$TARGET_JPD_AUTH_TOKEN "${TARGET_JPD_URL}/artifactory/api/security/group/$username" -s -H 'Content-Type: application/json'
+while IFS= read -r groupname; do
+    echo -e "Deleting group ====> $groupname <==== in ${TARGET_JPD_URL}"
+    curl -XDELETE -H "Authorization: Bearer $TARGET_JPD_AUTH_TOKEN" "${TARGET_JPD_URL}/access/api/v2/groups/$groupname" -s
     echo -e "\n"
 done < $deleteGroupsList
 
-### sample cmd to run - ./syncUser.sh https://ramkannan.jfrog.io http://35.208.78.203:8082 admin **** ****
+### sample cmd to run - ./syncUser.sh https://ramkannan.jfrog.io http://35.208.78.203:8082  **** ****
