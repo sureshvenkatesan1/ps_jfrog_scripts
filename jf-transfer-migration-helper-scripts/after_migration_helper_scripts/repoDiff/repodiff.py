@@ -187,9 +187,12 @@ def main():
     source_data = load_json_file(source_log_file)
     target_data = load_json_file(target_log_file)
 
-    # Extract the "uri" values from both source and target files
-    source_uris = {item['uri'] for item in source_data['files']}
-    target_uris = {item['uri'] for item in target_data['files']}
+    # Extract the "uri" values from both source and target files excluding the  "_uploads/" intermediate files in docker repos
+    # source_uris = {item['uri'] for item in source_data['files']}
+    # target_uris = {item['uri'] for item in target_data['files']}
+
+    source_uris = {item['uri'] for item in source_data['files'] if "_uploads/" not in item['uri']}
+    target_uris = {item['uri'] for item in target_data['files'] if "_uploads/" not in item['uri']}
 
     # Find the unique URIs and calculate the total size
     unique_uris = source_uris - target_uris

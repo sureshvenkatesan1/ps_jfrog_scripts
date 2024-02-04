@@ -16,6 +16,7 @@ python compare_repo_list_details_in_source_vs_target_rt_after_migration.py \
 import json
 import argparse
 import os
+import subprocess
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Compare repository details from source and target JSON files.')
@@ -75,13 +76,67 @@ def convert_used_space_to_bytes(used_space_str):
     else:
         return 0
 
-def generate_comparison_output(repo_details_of_interest, args):
+    # Fetch the "*_uploads" and ".jfrog" details  from a "Docker" repo
+
+def get_docker_repo_all_uploads_files_count_and_total_size(repo_key, artifactory_server_id , output_dir):
+    # Define the AQL query as a string
+    aql_query = f'''items.find(
+        {{ "repo": "{repo_key}",
+             "$or": [
+                {{"path": {{"$match": ".jfrog"}}}},
+                {{"path": {{"$match": "*_uploads"}}}}
+            ]
+        }}
+    )'''
+
+    # Create the command as a list
+
+    command = [
+        "jf", "rt", "curl", "-s",
+        "-XPOST", "/api/search/aql", '-H' , "Content-Type: text/plain",
+        "-d", aql_query,
+        "-L", "--server-id", artifactory_server_id
+    ]
+
+    print("Executing command:", " ".join(command))
+    results_file = os.path.join(output_dir, f"{repo_key}.json")
+    try:
+        with open(results_file, "w") as output:
+            subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+        print("Command executed successfully.")
+    except subprocess.CalledProcessError as e:
+        print("Command failed with error:", e.stderr)
+
+    # Parse the JSON data
+    data = load_json_file(results_file)
+    # Initialize total size to 0 and item count to 0
+    total_size = 0
+    item_count = 0
+
+    # Iterate through the "results" array and sum up the "size" values
+    for result in data["results"]:
+        total_size += result["size"]
+        item_count += 1
+
+    # Create a tuple with item count and total size
+    result_tuple = (item_count, total_size)
+
+    # Print the result tuple
+    print(f"Result Tuple for {repo_key}:", result_tuple)
+    return result_tuple
+
+# Load the contents of the JSON files
+def load_json_file(file_path):
+    with open(file_path, 'r') as json_file:
+        return json.load(json_file)
+
+def generate_comparison_output(repo_details_of_interest, args, output_dir):
     comparison_output_tabular = []
     comparison_output_tabular.append("{:<64} {:<15} {:<15} {:<15} {:<15} {:<20} {:<20} {:<25} {:<20}".format("Repo Key",
                                                                                                              "Source "
                                                                                                              "repoType",
-                                                                                                             "Target "
-                                                                                                             "repoType",
+                                                                                                             "Source "
+                                                                                                             "packageType",
                                                                                                              "Source "
                                                                                                              "filesCount",
                                                                                                              "Target filesCount",
@@ -89,7 +144,7 @@ def generate_comparison_output(repo_details_of_interest, args):
                                                                                                              "Used Space (Target)",
                                                                                                              "SpaceInBytes Difference",
                                                                                                              "Remaining Transfer %"))
-    comparison_output_tabular.append("=" * 200)
+    comparison_output_tabular.append("=" * 220)
 
     repos_with_space_difference = []
     repos_with_both_differences = []
@@ -139,6 +194,9 @@ def generate_comparison_output(repo_details_of_interest, args):
         source_details = repo_details['source'] if repo_details['source'] else {}
         target_details = repo_details['target'] if repo_details['target'] else {}
 
+        source_repo_type = source_details.get('repoType', 'N/A')
+        source_package_type = source_details.get('packageType', 'N/A')
+
         source_files_count = source_details.get('filesCount', 0)
         target_files_count = target_details.get('filesCount', 0)
 
@@ -153,6 +211,18 @@ def generate_comparison_output(repo_details_of_interest, args):
             if 'usedSpaceInBytes' in source_details
             else convert_used_space_to_bytes(target_details.get('usedSpace', '0'))
         )
+        # If this repo is of "packageType": "Docker"  then do not include the "repository.catalog" and "*_uploads" in the (source/target)_files_count
+        # and (source/target)_space_in_bytes, as the files in "*_uploads" from source will not be replicated to the target artifactory instance.
+        if source_package_type == "Docker":
+            source_docker_repo_all_items_in_uploads_count, source_docker_repo_all_uploads_size = get_docker_repo_all_uploads_files_count_and_total_size(repo_key, args.source_server_id , os.path.join(output_dir, args.source_server_id))
+            target_docker_repo_all_items_in_uploads_count, target_docker_repo_all_uploads_size = get_docker_repo_all_uploads_files_count_and_total_size(repo_key, args.target_server_id, os.path.join(output_dir, args.target_server_id))
+
+            source_files_count = source_files_count - source_docker_repo_all_items_in_uploads_count
+            target_files_count = target_files_count - target_docker_repo_all_items_in_uploads_count
+
+            source_space_in_bytes = source_space_in_bytes - source_docker_repo_all_uploads_size
+            target_space_in_bytes = target_space_in_bytes - target_docker_repo_all_uploads_size
+
         space_difference = source_space_in_bytes - target_space_in_bytes
 
 
@@ -164,21 +234,20 @@ def generate_comparison_output(repo_details_of_interest, args):
                 if source_space_in_bytes > threshold_bytes:
                     big_source_repos.append(repo_key)
 
-        source_repo_type = source_details.get('repoType', 'N/A')
-        target_repo_type = target_details.get('repoType', 'N/A')
 
-        source_used_space = source_details.get('usedSpace', 'N/A')
-        target_used_space = target_details.get('usedSpace', 'N/A')
+
+        # source_used_space = source_details.get('usedSpace', 'N/A')
+        # target_used_space = target_details.get('usedSpace', 'N/A')
 
         transfer_percentage = (space_difference / source_space_in_bytes) * 100 if source_space_in_bytes != 0 else 0
 
-        comparison_output_tabular.append("{:<64} {:<15} {:<15} {:<15} {:<15} {:<20} {:<20} {:<25} {:<20.2f}".format(repo_key,
+        comparison_output_tabular.append("{:<64} {:<25} {:<15} {:<15} {:<15} {:<20} {:<20} {:<25} {:<20.2f}".format(repo_key,
                                                                                                                     source_repo_type,
-                                                                                                                    target_repo_type,
+                                                                                                                    source_package_type,
                                                                                                                     source_files_count,
                                                                                                                     target_files_count,
-                                                                                                                    source_used_space,
-                                                                                                                    target_used_space,
+                                                                                                                    source_space_in_bytes,
+                                                                                                                    target_space_in_bytes,
                                                                                                                     space_difference,
                                                                                                                     transfer_percentage))
 
@@ -189,7 +258,7 @@ def generate_comparison_output(repo_details_of_interest, args):
 
     return comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos
 
-def print_alternative_transfer_method(output_file,big_source_repos, source_server_id, target_server_id):
+def print_alternative_transfer_method(output_dir,output_file,big_source_repos, source_server_id, target_server_id):
     if not big_source_repos:
         output_file.write("\n\n\nNo big source repositories to transfer.\n")
         return
@@ -197,7 +266,7 @@ def print_alternative_transfer_method(output_file,big_source_repos, source_serve
     output_file.write("\n\n\nAlternative Transfer Method for ({}) Big Source Repositories:\n\n".format(len(big_source_repos)))
     # for repo in big_source_repos:
     #     output_file.write(f"\nTransfer {repo} from {source_server_id} to {target_server_id}")
-    screen_commands = generate_screen_commands(big_source_repos, source_server_id, target_server_id)
+    screen_commands = generate_screen_commands(output_dir,big_source_repos, source_server_id, target_server_id)
 
     # Write screen commands to a file
     # This code will generate screen commands for each repository in big_source_repos, create subfolders for each screen session,
@@ -238,7 +307,7 @@ def bucket_repositories(repos_to_bucket, args):
 
     return buckets
 
-def write_output(output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets):
+def write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets):
     output_file.write("Tabular Comparison:\n")
     for line in comparison_output_tabular:
         output_file.write(line + '\n')
@@ -249,7 +318,7 @@ def write_output(output_file, comparison_output_tabular, repos_with_space_differ
 
     # Print the commands for the big repos
     if args.print_alternative_transfer:
-        print_alternative_transfer_method(output_file, big_source_repos, args.source_server_id, args.target_server_id)
+        print_alternative_transfer_method(output_dir, output_file, big_source_repos, args.source_server_id, args.target_server_id)
 
     # Now print the commands for the small / all repos if ot using alternate commands to transfer
     if not buckets:
@@ -313,7 +382,7 @@ def write_output(output_file, comparison_output_tabular, repos_with_space_differ
 def subtract_lists(list1, list2):
     return [item for item in list1 if item not in list2]
 
-def generate_screen_commands(big_source_repos, source_server_id, target_server_id):
+def generate_screen_commands(output_dir, big_source_repos, source_server_id, target_server_id):
     screen_commands = []
 
     # Determine the number of subfolders based on the number of items in big_source_repos
@@ -325,7 +394,7 @@ def generate_screen_commands(big_source_repos, source_server_id, target_server_i
     #     os.makedirs(subfolder, exist_ok=True)
 
     for i, repo in enumerate(big_source_repos, start=1):
-        subfolder = os.path.join("output", str(i))
+        subfolder = os.path.join(output_dir, str(i))
         screen_session_name = f"upload-session{i}"
         screen_command = (
             f"mkdir -p {subfolder}\n"
@@ -350,8 +419,14 @@ def main():
     # for repo in repo_details_of_interest:
     # print(f"repo['source']: {repo['source']} ---- repo['target']: {repo['target']}")
 
+    # Create the output sub-directories for source and target if it doesn't exist
+    output_dir = "output"
+    comparison_report_file = os.path.join(output_dir, args.out)
 
-    comparison_output_tabular, repos_with_space_difference, repos_with_both_differences , big_source_repos = generate_comparison_output(repo_details_of_interest, args)
+    os.makedirs(os.path.join(output_dir, args.source_server_id) , exist_ok=True)
+    os.makedirs(os.path.join(output_dir, args.target_server_id) , exist_ok=True)
+
+    comparison_output_tabular, repos_with_space_difference, repos_with_both_differences , big_source_repos = generate_comparison_output(repo_details_of_interest, args, output_dir)
     print("\n\n==================================================================")
     print(f"{len(repos_with_space_difference)} repos_with_space_difference is ->  {repos_with_space_difference}")
     print("==================================================================")
@@ -373,7 +448,7 @@ def main():
         # Exclude the last n repos based on the --total_repos_customer_will_migrate argument , if there are more repos
         if len(small_repos_with_both_differences) - args.total_repos_customer_will_migrate > 0:
             # If there are more repos  then we can give the last  total_repos_customer_will_migrate to customer to migrate.
-            # The remaininng PS can migrate
+            # The remaining PS can migrate
             repos_to_bucket = small_repos_with_both_differences[:len(small_repos_with_both_differences) - args.total_repos_customer_will_migrate]
         else:
             # If there are not enough repos, assign then PS can migrate all the repos_with_both_differences repos.
@@ -383,8 +458,8 @@ def main():
         buckets = bucket_repositories(repos_to_bucket, args)
 
         # Write the output
-        with open(args.out, 'w') as output_file:
-            write_output(output_file, comparison_output_tabular, repos_with_space_difference, small_repos_with_both_differences, big_source_repos, args, buckets)
+        with open(comparison_report_file, 'w') as output_file:
+            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, small_repos_with_both_differences, big_source_repos, args, buckets)
 
     else:
         # Exclude the last n repos based on the --total_repos_customer_will_migrate argument , if there are more repos
@@ -401,10 +476,10 @@ def main():
         buckets = bucket_repositories(repos_to_bucket, args)
 
         # Write the output
-        with open(args.out, 'w') as output_file:
-            write_output(output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets)
+        with open(comparison_report_file, 'w') as output_file:
+            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets)
 
-    print(f"Comparison results written to {args.out}")
+    print(f"Comparison results written to {comparison_report_file}")
 
 if __name__ == "__main__":
     main()

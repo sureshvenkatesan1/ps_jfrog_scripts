@@ -17,8 +17,8 @@ Before using this script, make sure you have the following prerequisites install
    ```
 2. Calculate the storage for the source and target Artifactory Instances  
 ```
-jf rt curl -X POST "/api/storageinfo/calculate" --server-id=ncr
-jf rt curl -X POST "/api/storageinfo/calculate" --server-id=ncratleostest  
+jf rt curl -X POST "/api/storageinfo/calculate" --server-id=source
+jf rt curl -X POST "/api/storageinfo/calculate" --server-id=target  
 ``` 
 
 
@@ -29,33 +29,33 @@ Output:
 
 4. Generate the storage details for all repos for the source and target Artifactory Instances
 ```
-jf rt curl -X GET "/api/storageinfo" --server-id=ncr > AllReposComparisonReport/input/ncr_storageinfo.json
-jf rt curl -X GET "/api/storageinfo" --server-id=ncratleostest > AllReposComparisonReport/input/ncratleostest_storageinfo.json
+jf rt curl -X GET "/api/storageinfo" --server-id=source > AllReposComparisonReport/input/source_storageinfo.json
+jf rt curl -X GET "/api/storageinfo" --server-id=target > AllReposComparisonReport/input/target_storageinfo.json
 ```
 
 5. Get the list of `local` repos you want to compare:
 ```
-jf rt curl  -X GET "/api/repositories?type=local"  | jq -r '.[] | .key' >> ncr/all_local_repos_in_ncr.txt
+jf rt curl  -X GET "/api/repositories?type=local"  --server-id=source | jq -r '.[] | .key' >> all_local_repos_in_source.txt
 
-sort -o ncr/all_local_repos_in_ncr.txt ncr/all_local_repos_in_ncr.txt
+sort -o all_local_repos_in_source.txt all_local_repos_in_source.txt
 ```
-If you want to exclude some repos (listed in exclude_these_cust-resposibility_repos.txt)  from all_local_repos_in_ncr.txt you can do:
+If you want to exclude some repos (listed in exclude_these_cust-responsibility_repos.txt)  from all_local_repos_in_source.txt you can do:
 ```
-comm -23 <(sort all_local_repos_in_ncr.txt) <(sort exclude_these_cust-resposibility_repos.txt) > ps_currently_migrating_for_group2.txt
+comm -23 <(sort all_local_repos_in_source.txt) <(sort exclude_these_cust-resposibility_repos.txt) > ps_currently_migrating_for_group2.txt
 ```
 
 ## Usage
 Assume the list of repos we want to compare is  [group2_found_in_all_local_repos_in_ncr.txt](input/group2_found_in_all_local_repos_in_ncr.txt)
 
-Generate the comparison report using:
+Generate the comparison report (comparison.txt) in the "output" folder using:
 ```
 python AllReposComparisonReport/compare_repo_list_details_in_source_vs_target_rt_after_migration.py \
- --source AllReposComparisonReport/input/ncr_storageinfo.json \
- --target AllReposComparisonReport/input/ncratleostest_storageinfo.json \
+ --source AllReposComparisonReport/input/source_storageinfo.json \
+ --target AllReposComparisonReport/input/target_storageinfo.json \
  --repos AllReposComparisonReport/input/group2_found_in_all_local_repos_in_ncr.txt \
- --out AllReposComparisonReport/output/comparison.txt \
- --source_server_id ncr \
- --target_server_id ncratleostest \
+ --out comparison.txt \
+ --source_server_id source \
+ --target_server_id target \
  --total_repos_customer_will_migrate 0 \
  --num_buckets_for_migrating_remaining_repos 3
 ```
@@ -67,7 +67,7 @@ This will generate the report in [comparison.txt](output/comparison.txt)
 --source: Path to the source JSON file containing repository details.
 --target: Path to the target JSON file containing repository details.
 --repos: Path to the text file containing repoKeys that the customer wants to migrate.
---out: Path to the output comparison file where the report will be generated.
+--out: the output comparison file where the report will be generated in the "ouput" folder.
 --source_server_id: Server ID of the source Artifactory.
 --target_server_id: Server ID of the target Artifactory.
 --total_repos_customer_will_migrate (optional): Specify the number of repositories that the customer is responsible for migrating.
@@ -76,3 +76,5 @@ This will generate the report in [comparison.txt](output/comparison.txt)
 --repo_threshold_in_gb (optional): Threshold in gigabytes (GB) for source repositories to generate alternate migrate commands.
 --print_alternative_transfer (optional): Include this flag to print alternative transfer methods for large source repositories.
 ```
+Note: For "Docker" packageType repos in the "--repos" list  , the comparison excludes  the  "repository.catalog" and "*_uploads" in the (source/target)_files_count
+     and (source/target)_space_in_bytes calculation , as the files in "*_uploads" from source will not be replicated to the target artifactory instance.
