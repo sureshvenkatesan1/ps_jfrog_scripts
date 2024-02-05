@@ -213,6 +213,8 @@ def generate_comparison_output(repo_details_of_interest, args, output_dir):
         )
         # If this repo is of "packageType": "Docker"  then do not include the "repository.catalog" and "*_uploads" in the (source/target)_files_count
         # and (source/target)_space_in_bytes, as the files in "*_uploads" from source will not be replicated to the target artifactory instance.
+        # You can read more about the _uploads folder here:
+        # https://jfrog.com/help/r/artifactory-what-is-the-uploads-folder-under-artifactory-docker-repositories
         if source_package_type == "Docker":
             source_docker_repo_all_items_in_uploads_count, source_docker_repo_all_uploads_size = get_docker_repo_all_uploads_files_count_and_total_size(repo_key, args.source_server_id , os.path.join(output_dir, args.source_server_id))
             target_docker_repo_all_items_in_uploads_count, target_docker_repo_all_uploads_size = get_docker_repo_all_uploads_files_count_and_total_size(repo_key, args.target_server_id, os.path.join(output_dir, args.target_server_id))
