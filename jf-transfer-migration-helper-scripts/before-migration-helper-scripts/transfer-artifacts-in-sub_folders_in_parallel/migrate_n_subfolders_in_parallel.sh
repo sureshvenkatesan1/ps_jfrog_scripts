@@ -14,7 +14,8 @@
 # ./migrate_n_subfolders_in_parallel.sh usvartifactory5 liquid jfrogio liquid  no  
 # Check if at least the first 5 required parameters are provided
 if [ $# -lt 5 ]; then
-    echo "Usage: $0 <source-artifactory> <source-repo> <target-artifactory> <target-repo> <transfer yes/no> [root-folder] [migrateFolderRecursively yes/no] [semicolon separted exclude_folders]"
+    echo "Usage: $0 <source-artifactory> <source-repo> <target-artifactory> <target-repo> <transfer yes/no> \
+    [root-folder] [migrateFolderRecursively yes/no] [semicolon separated exclude_folders]"
     exit 1
 fi
 
@@ -30,6 +31,14 @@ target_repo="$4"
 TRANSFERONLY="$5"
 migratefiles_and_subfolders_recursive="yes"
 
+# Check if the sixth parameter (root-folder) is provided
+if [ $# -ge 6 ] && [ -n "${6}" ]; then
+    root_folder="$6"
+else
+    root_folder="."
+fi
+
+
 # Check if the 7th argument is provided and not empty
 if [ $# -ge 7 ] && [ -n "${7}" ]; then
     # Check if the 7th argument is either "yes" or "no"
@@ -40,11 +49,26 @@ if [ $# -ge 7 ] && [ -n "${7}" ]; then
     fi
 fi
 
-EXCLUDE_FOLDERS=";.conan;$8;"
+# EXCLUDE_FOLDERS excludes the ".conan" folder as it is  a generated one when a conan repo is indexed during
+# artifact upload to that repo
+if [ $# -ge 8 ] && [ -n "${8}" ]; then
+    EXCLUDE_FOLDERS=";.conan;${8};"
+else
+    EXCLUDE_FOLDERS=";.conan;"
+fi
+
 # jq_sed_command="jq '.results[]|(.path +\"/\"+ .name+\",\"+(.sha256|tostring))'  | sed  's/\.\///'"
 
-# Counter to limit parallel execution
-#parallel_count=0
+# Counter to limit parallel  execution i.e max number of concurrent background execute_artifact_migration jobs
+if [ $# -ge 9 ] && [[ "${9}" =~ ^[0-9]+$ ]]; then
+    parallel_count="${9}"
+    echo "parallel_count has been set to: $parallel_count"
+else
+    echo "Error: The 9th argument (parallel_count) must be an integer. Using default value 16."
+    parallel_count=16
+fi
+
+
 
 # Log failed, successful, and all commands to separate files
 failed_commands_file="failed_commands.txt"
@@ -213,9 +237,10 @@ run_migrate_command() {
 
                         # Limit the number of concurrent background execute_artifact_migration jobs 
                         job_count=$(jobs -p | wc -l)
-                        if [ "$job_count" -ge 16 ]; then
+                        if [ "$job_count" -ge "$parallel_count" ]; then
                             wait
                         fi
+
 
                     fi
 
@@ -423,12 +448,7 @@ processLeafFolderContents() {
 
 
 
-# Check if the fifth parameter (root-folder) is provided
-if [ $# -ge 6 ]; then
-    root_folder="$6"
-else 
-    root_folder="."
-fi
+
 # check for files in the root folder:
 src_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $source_artifactory --insecure \
 --data 'items.find({\"repo\":  {\"\$eq\":\"$source_repo\"}, \"path\": {\"\$match\": \"$root_folder\"},\

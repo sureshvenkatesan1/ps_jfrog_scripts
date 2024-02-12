@@ -72,7 +72,9 @@ So I improved on the the `transfer.sh` and wrote this [migrate_n_subfolders_in_p
 ## Usage
 
 ```bash
-./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> <target-repo> <transfer yes/no> [root-folder] [migrateFolderRecursively yes/no] [semicolon-separated exclude_folders]
+./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> \ 
+<target-artifactory-serverid>  <target-repo> <transfer yes/no> [root-folder] \
+[migrateFolderRecursively yes/no] [semicolon-separated exclude_folders] [parallel_count]
 ```
 
 - source-artifactory: The source Artifactory instance.
@@ -83,6 +85,8 @@ So I improved on the the `transfer.sh` and wrote this [migrate_n_subfolders_in_p
 - root-folder (optional): The root folder to start the migration from (default is the "." i.e the repositoy's root directory).
 - migrateFolderRecursively yes/no (optional): Specify 'yes' to migrate subfolders recursively or 'no' to only migrate the root folder (default is 'yes').
 - semicolon-separated exclude_folders (optional): List of folders to exclude from migration, separated by semicolons. ( default is ';.conan;')
+- parallel_count (optional): Counter to limit parallel  execution i.e max number of concurrent background 
+  execute_artifact_migration jobs . ( default is 16)
 
 ## Prerequisites
 
@@ -159,3 +163,33 @@ Using this script I was able to transfer `400 GB` of artifacts in the `<source-r
 
 Then by using the  [generate_screen_commands_for_subfolders/generate_screen_commands_for_subfolders.py](generate_screen_commands_for_subfolders/generate_screen_commands_for_subfolders.py) script as explained in
 [generate_screen_commands_for_subfolders](generate_screen_commands_for_subfolders) , which generates a bash script to  run this [migrate_n_subfolders_in_parallel.sh](transfer-artifacts-in-sub_folders_in_parallel/migrate_n_subfolders_in_parallel.sh) script for 18 subfolders in parallel   , I was able to transfer almost `2 TB` ( approximately 1.5 million artifacts) per day.
+
+---
+### To transfer Docker repos:
+In a docker repo the ".jfrog/repository.catalog" file is generated when the repo is indexed ( while uploading the docker images). So you can exclude that folder during migration.
+
+So when you migrate a docker repo verify that the `DRY RUN` (i.e <transfer>  set to `no`) works the way you want by checking the `output/successful_commands.txt` and `output/all_commands.txt` after running below command:
+```
+cd <any working folder where you run the script , say /tmp>
+
+bash ./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> \
+<target-artifactory-serverid> <target-repo> <transfer yes/no> [root-folder] \
+[migrateFolderRecursively yes/no] [semicolon-separated exclude_folders]
+```
+
+For example:
+```text
+bash /tmp/migrate_n_subfolders_in_parallel.sh soleng adamr-test-docker \
+proservicesone test-docker no . yes \
+".jfrog;adamjfrogtest;adamrjfrogtest2;adamrjfrogtest3;adamrjfrogtest4;adamrjfrogtest5"
+```
+
+Then do the actual transfer using without the `DRY RUN` (i.e <transfer>  set to `yes`) :
+
+```text
+bash /tmp/migrate_n_subfolders_in_parallel.sh soleng adamr-test-docker \
+proservicesone test-docker yes . yes \
+".jfrog;adamjfrogtest;adamrjfrogtest2;adamrjfrogtest3;adamrjfrogtest4;adamrjfrogtest5"
+```
+---
+
