@@ -282,104 +282,84 @@ run_migration_for_folder() {
 }
 
 migrateFolderRecursively(){
-# Enable debugging
-#set -x
- # Define a stack to keep track of folders to process
-folder_stack=("$1")
+    # Enable debugging
+    # set -x
+    # Define a stack to keep track of folders to process
+    folder_stack=("$1")
 
-# Iterate until the stack is empty
-while [ ${#folder_stack[@]} -gt 0 ]; do
-    # Pop the top folder from the stack
-    l_root_folder="${folder_stack[-1]}"
-    unset 'folder_stack[${#folder_stack[@]}-1]'
+    # Iterate until the stack is empty
+    while [ ${#folder_stack[@]} -gt 0 ]; do
+        # Pop the top folder from the stack
+        l_root_folder="${folder_stack[-1]}"
+        unset 'folder_stack[${#folder_stack[@]}-1]'
 
-    echo "Processing folder: $l_root_folder"
-
-    # Find all the sub-folders of the $l_root_folder
-    if [ "$l_root_folder" != "." ]; then
-        output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo/$l_root_folder?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
-    else
-        output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
-    fi
-
-    echo "In migrateFolderRecursively - 1 - b4 calling jq"
-    # Parse the JSON output using jq and get the "uri" values for folders
-    # echo "$output"
-    folders=$(echo "$output"  | jq -r '.files[] | select(has("folder") and .folder != null and .folder == true and has("uri") and .uri != null) |  .uri') 
-
-    echo "In migrateFolderRecursively - 2 - after calling jq"
-
-    # Split folders into an array
-    IFS=$'\n' read -rd '' -a folders_array <<< "$folders"
-
-    # Calculate the total number of sub-folders
-    local total_folders=$(( ${#folders_array[@]} ))
-    echo "total_folders is $total_folders . is it > 1"
-
-    if [ "$total_folders" -gt 1 ]; then
-        echo "yes it is ......"
-        for folder_position in "${!folders_array[@]}"; do
-            folder="${folders_array[$folder_position]}"
-            #Remove the leading slash i.e if folder is "/abc" it becomes "abc"
-            folder="${folder#/}"
-            if [ -n "$folder" ]; then # folder is not null
-                # Check if the folder name is ".conan" and skip it as it will be generated
-                if [[ "$EXCLUDE_FOLDERS" == *";$folder;"* ]]; then
-                    continue  # Skip this iteration of the loop
-                fi
-
-                # Push the subfolder onto the stack for processing
-                if [ "$l_root_folder" = "." ]; then
-                    folder_to_migrate="$folder"
-                else
-                    folder_to_migrate="$l_root_folder/$folder"
-                fi
-                # folder_to_migrate="$l_root_folder/$folder"
-                echo "Push the subfolder {$folder_to_migrate} onto the stack for processing ..."
-                folder_stack+=("$folder_to_migrate")
-            fi
-        done
-    elif [ "$total_folders" -eq 1 ]; then
-        echo "$l_root_folder is the level1 folder under root . So process its subfolders ......"
-        for folder_position in "${!folders_array[@]}"; do
-            folder="${folders_array[$folder_position]}"
-            #Remove the leading slash i.e if folder is "/abc" it becomes "abc"
-            folder="${folder#/}"
-            echo "Processing the leaf folder {$folder}......"
-            if [ -n "$folder" ]; then # folder is not null
-                # Check if the folder name is ".conan" and skip it as it will be generated
-                if [[ "$EXCLUDE_FOLDERS" == *";$folder;"* ]]; then
-                    continue  # Skip this iteration of the loop
-                fi
-
-                # Process the subfolder
-                if [ "$l_root_folder" = "." ]; then
-                    folder_to_migrate="$folder"
-                else
-                    folder_to_migrate="$l_root_folder/$folder"
-                fi
-
-                echo "Processing folder: $folder_to_migrate"
-                processLeafFolderContents "$folder_to_migrate"
-            fi
-        done
-        echo "$l_root_folder is the level1 folder under root . So migrate the files in this folder......"
         echo "Processing folder: $l_root_folder"
-        processLeafFolderContents "$l_root_folder"
-    elif [ "$total_folders" -eq 0 ]; then
-          echo "$l_root_folder is the level1 folder of a root folder and only has files i.e does not contain subfolders......So migrate the files in this folder......"
-          echo "Processing folder: $l_root_folder"
-          processLeafFolderContents "$l_root_folder"
-    fi
-done
-# Disable debugging (optional)
-#set +x
+
+        # Find all the sub-folders of the $l_root_folder
+        if [ "$l_root_folder" != "." ]; then
+            output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo/$l_root_folder?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
+        else
+            output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
+        fi
+
+        echo "In migrateFolderRecursively - 1 - b4 calling jq"
+        # Parse the JSON output using jq and get the "uri" values for folders
+        # echo "$output"
+        folders=$(echo "$output"  | jq -r '.files[] | select(has("folder") and .folder != null and .folder == true and has("uri") and .uri != null) |  .uri')
+
+        echo "In migrateFolderRecursively - 2 - after calling jq"
+
+        # Split folders into an array
+        IFS=$'\n' read -rd '' -a folders_array <<< "$folders"
+
+        # Calculate the total number of sub-folders
+        local total_folders=$(( ${#folders_array[@]} ))
+        echo "total_folders is $total_folders . is it >= 1"
+
+        if [ "$total_folders" -ge 1 ]; then
+            echo "yes it is ......"
+            for folder_position in "${!folders_array[@]}"; do
+                folder="${folders_array[$folder_position]}"
+                #Remove the leading slash i.e if folder is "/abc" it becomes "abc"
+                folder="${folder#/}"
+                if [ -n "$folder" ]; then # folder is not null
+                    # Check if the folder name is ".conan" and skip it as it will be generated.
+                    # Also skip "_uploads" folder for Docker repos
+                    echo "~~~~~~~~~~~>${folder}"
+                    if [[ "$EXCLUDE_FOLDERS" == *";$folder;"* ]] || [ "$folder" = "_uploads" ]; then
+                        echo "============excluding=====>${folder}"
+                        continue  # Skip this iteration of the loop
+                    fi
+
+                    # Push the subfolder onto the stack for processing
+                    if [ "$l_root_folder" = "." ]; then
+                        folder_to_migrate="$folder"
+                    else
+                        folder_to_migrate="$l_root_folder/$folder"
+                    fi
+                    echo "Push the subfolder {$folder_to_migrate} onto the stack for processing ..."
+                    folder_stack+=("$folder_to_migrate")
+                fi
+            done
+
+        fi
+
+        # Process the "$l_root_folder"  contents as the subfolders will be processed  when the stack is popped.
+        echo "Check if the  files in $l_root_folder needs to be migrated."
+        echo "Processing folder: $l_root_folder"
+        processFolderContents "$l_root_folder"
+
+    done
+    # Disable debugging (optional)
+    # set +x
 }
 
-processLeafFolderContents() {
+
+
+processFolderContents() {
     local folder_to_migrate="$1"  
 
-    echo " In processLeafFolderContents folder_to_migrate is '$folder_to_migrate'"
+    echo " In processFolderContents folder_to_migrate is '$folder_to_migrate'"
 
     # migrate files in the sub-folder
     src_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $source_artifactory --insecure \
@@ -397,22 +377,6 @@ processLeafFolderContents() {
     # run_migration_for_folder "$src_files_list_in_this_folder_command" "$target_files_list_in_this_folder_command" "$folder_to_migrate" "$((folder_position+1))" "$total_folders"
     run_migration_for_folder "$src_command1" "$target_command1" "$folder_to_migrate" "1" "1" "top"
 
-    # Now migrate the  subfolders of $folder_to_migrate:
-
-    src_command2="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $source_artifactory --insecure \
-    --data 'items.find({\"repo\":  {\"\$eq\":\"$source_repo\"}, \"path\": {\"\$match\": \"$folder_to_migrate/*\"},\
-        \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")'"
-    
-
-    target_command2="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $target_artifactory --insecure \
-    --data 'items.find({\"repo\":  {\"\$eq\":\"$target_repo\"}, \"path\": {\"\$match\": \"$folder_to_migrate/*\"},\
-        \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")'"
-
-
-
-    #Call the migrate command with the trailing * to migrate folders  in $folder_to_migrate
-    # run_migration_for_folder "$src_list_in_subfolders_command" "$target_list_in_subfolders_command" "$folder_to_migrate" "$((folder_position+1))" "$total_folders"
-    run_migration_for_folder "$src_command2" "$target_command2" "$folder_to_migrate" "1" "1" "inner"
 
     # Check if the folder exists
     # echo "1st  for loop In $(pwd) - Checking Folder $((folder_position+1))/$folder_to_migrate is empty . If empty remove. ---->" >> "$failed_commands_file"
