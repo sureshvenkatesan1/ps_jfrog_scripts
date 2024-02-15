@@ -1,17 +1,36 @@
 
 """
-python /Users/sureshv/myCode/bitbucket-ps/ps_jfrog_scripts/jf-transfer-migration-helper-scripts
-/after_migration_helper_scripts/fix_the_repoDiff/transfer_cleanpaths_delta_from_repoDiff.py \
-/tmp/test/output/cleanpaths.txt \
-soleng app1-docker-dev-local proservicesone test-docker
+This script facilitates the migration of artifacts from a source repository to a target repository in Artifactory,
+while also transferring associated metadata properties. It reads a file containing a list of artifacts to be migrated
+from the source repository to the target repository. For each artifact, it downloads the artifact from the source,
+uploads it to the target, and transfers any associated metadata properties.
+
+Usage:
+    python transfer_cleanpaths_delta_from_repoDiff.py <input_file> <source_artifactory> <source_repo> <target_artifactory> <target_repo>
 
 Parameters:
-<source-artifactory> <source-repo> <target-artifactory> <target-repo>
+    input_file (str): Path to the input file containing file paths.
+    source_artifactory (str): Source Artifactory URL.
+    source_repo (str): Source repository name.
+    target_artifactory (str): Target Artifactory URL.
+    target_repo (str): Target repository name.
 
 No longer using the following parameters:
-<transfer yes/no> \
-[migrateFolderRecursively yes/no] [semicolon separated exclude_folders] [parallel_count]
+    transfer (str): Transfer yes/no.
+    migrate_recursively (str): MigrateFolderRecursively yes/no.
+    exclude_folders (str): Semicolon-separated exclude folders.
+    parallel_count (int): Parallel count.
+    outfile (str): Output file to write the generated scripts.
+
+Example:
+    python transfer_cleanpaths_delta_from_repoDiff.py /tmp/test/output/cleanpaths.txt \
+    soleng app1-docker-dev-local proservicesone test-docker
+
+Note:
+    This script assumes the availability of the 'jf' command-line tool for interacting with Artifactory.
+    Ensure that the 'jf' tool is installed and configured properly before executing this script.
 """
+
 
 
 
@@ -21,6 +40,21 @@ import os
 import json
 
 def execute_artifact_migration(workdir, source_repo, line, source_artifactory, target_repo, target_artifactory, escaped_modified_json):
+    """
+    Execute the migration of artifacts.
+
+    Parameters:
+    - workdir (str): Working directory path.
+    - source_repo (str): Source repository name.
+    - line (str): Line representing an artifact.
+    - source_artifactory (str): Source Artifactory URL.
+    - target_repo (str): Target repository name.
+    - target_artifactory (str): Target Artifactory URL.
+    - escaped_modified_json (dict): Dictionary containing escaped modified JSON data.
+
+    Returns:
+    None
+    """
     # Save the current directory to a variable
     current_dir = os.getcwd()
 
@@ -68,6 +102,17 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
     os.chdir(current_dir)  # Return to the saved directory i.e "$OLDPWD"
 
 def get_escaped_modified_json(source_repo, line, source_artifactory):
+    """
+    Get escaped modified JSON data for an artifact.
+
+    Parameters:
+    - source_repo (str): Source repository name.
+    - line (str): Line representing an artifact.
+    - source_artifactory (str): Source Artifactory URL.
+
+    Returns:
+    dict or None: Dictionary containing escaped modified JSON data if found, otherwise None.
+    """
     # Construct the command to run
     command = [
         "jf", "rt", "curl", "-s", "-k", "-XGET",
@@ -103,6 +148,19 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
 
     return None  # Return None if no properties or error occurred
 def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifactory, target_repo):
+    """
+    Migrate artifacts from source to target Artifactory.
+
+    Parameters:
+    - input_file (str): Path to the input file containing file paths.
+    - source_artifactory (str): Source Artifactory URL.
+    - source_repo (str): Source repository name.
+    - target_artifactory (str): Target Artifactory URL.
+    - target_repo (str): Target repository name.
+
+    Returns:
+    None
+    """
     # No longer need the method parameters transfer, migrate_recursively=None, exclude_folders=None,
     # parallel_count=None, outfile=None
     # Define flags to indicate which section we're currently in
@@ -171,6 +229,9 @@ def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifa
 #         outfile.write(script + "\n")
 
 def main():
+    """
+    Main function to parse command-line arguments and execute the migration.
+    """
     parser = argparse.ArgumentParser(description='Generate migration scripts for each file.')
     # we no longer need to pass the migrate_n_subfolders_in_parallel.sh as the 'script_path' as this script directly
     # transfers the delta artifacts from the cleanpaths.txt  output
