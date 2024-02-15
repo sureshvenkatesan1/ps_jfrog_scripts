@@ -33,7 +33,8 @@ def write_unique_uris(output_file, unique_uris,total_size):
     with open(output_file, 'w') as uri_file:
         uri_file.write("******************************\n")
         uri_file.write("Files present in the source repository and are missing in the target repository:\n")
-        uri_file.write("******************************\n\n")
+        uri_file.write("******************************\n")
+        # sorted_uris = sorted(unique_uris)
         for uri in unique_uris:
             uri_file.write(uri + '\n')
             # Generate the count of files sorted by extension
@@ -67,7 +68,7 @@ def write_unique_uris(output_file, unique_uris,total_size):
 def write_unique_uris_with_repo_prefix(output_file, unique_uris, source_rt_repo_prefix):
     with open(output_file, 'w') as uri_file:
         for uri in unique_uris:
-            uri_file.write(source_rt_repo_prefix + uri + '\n')
+            uri_file.write(source_rt_repo_prefix + "/" + uri + '\n')
 
 # Filter and write the unique URIs "without unwanted files" , to a file in the output folder
 def write_filepaths_nometadata(unique_uris,filepaths_nometadata_file,):
@@ -188,14 +189,17 @@ def main():
     target_data = load_json_file(target_log_file)
 
     # Extract the "uri" values from both source and target files excluding the  "_uploads/" intermediate files in docker repos
-    # source_uris = {item['uri'] for item in source_data['files']}
-    # target_uris = {item['uri'] for item in target_data['files']}
+    # source_uris = {item['uri'] for item in source_data['files'] if "_uploads/" not in item['uri']}
+    # target_uris = {item['uri'] for item in target_data['files'] if "_uploads/" not in item['uri']}
 
-    source_uris = {item['uri'] for item in source_data['files'] if "_uploads/" not in item['uri']}
-    target_uris = {item['uri'] for item in target_data['files'] if "_uploads/" not in item['uri']}
+    source_uris = {item['uri'][1:] for item in source_data['files'] if "_uploads/" not in item['uri'] and
+                   "repository.catalog" not in item['uri']}
+    target_uris = {item['uri'][1:] for item in target_data['files'] if "_uploads/" not in item['uri'] and
+                "repository.catalog" not in item['uri']}
+
 
     # Find the unique URIs and calculate the total size
-    unique_uris = source_uris - target_uris
+    unique_uris = sorted(source_uris - target_uris)
     total_size = sum(item['size'] for item in source_data['files'] if item['uri'] in unique_uris)
 
     # Write the unique URIs to a file in the output folder
