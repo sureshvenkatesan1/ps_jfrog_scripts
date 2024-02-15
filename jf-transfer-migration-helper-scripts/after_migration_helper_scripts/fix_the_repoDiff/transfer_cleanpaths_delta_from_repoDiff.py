@@ -85,7 +85,7 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
         json_data = prop_output.get("properties")
         print(f"json_data is: {json_data}")
         escaped_modified_json = {"props": json_data}
-        print(f"escaped_modified_json is: {escaped_modified_json}")
+        # print(f"escaped_modified_json is: {escaped_modified_json}")
         return escaped_modified_json
         # # Check if the artifact has properties
         # if 'errors' in prop_output and prop_output['errors'][0]['status'] != 404:
