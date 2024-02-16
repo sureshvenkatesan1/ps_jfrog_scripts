@@ -62,7 +62,7 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
     os.chdir(workdir)
     print(f"In execute_artifact_migration escaped_modified_json is: {escaped_modified_json}")
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
-    if escaped_modified_json and 'props' in escaped_modified_json and len(escaped_modified_json['props']) >= 1:
+    if escaped_modified_json and isinstance(escaped_modified_json, dict) and 'props' in escaped_modified_json and escaped_modified_json['props'] and len(escaped_modified_json['props']) >= 1:
         # Serialize the dictionary to a JSON string
         json_data_str = json.dumps(escaped_modified_json)
 
