@@ -38,6 +38,9 @@ import argparse
 import subprocess
 import os
 import json
+import tempfile
+
+
 
 def execute_artifact_migration(workdir, source_repo, line, source_artifactory, target_repo, target_artifactory, escaped_modified_json):
     """
@@ -63,12 +66,17 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
     print(f"In execute_artifact_migration escaped_modified_json is: {escaped_modified_json}")
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
     if escaped_modified_json and isinstance(escaped_modified_json, dict) and 'props' in escaped_modified_json and escaped_modified_json['props'] and len(escaped_modified_json['props']) >= 1:
-        # Serialize the dictionary to a JSON string
-        json_data_str = json.dumps(escaped_modified_json)
+        # Serialize the dictionary to a JSON string with ensure_ascii=False
+        print(f"--->escaped_modified_json: {escaped_modified_json}")
+
+        # Write escaped_modified_json to a temporary JSON file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+            temp_file.write(json.dumps(escaped_modified_json))
 
         # Construct the curl command with the JSON data string
-        curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{line}?atomicProperties=1" --server-id {target_artifactory} -d \'{json_data_str}\''
-
+        # curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{line}?atomicProperties=1" --server-id {target_artifactory} -d \'{json_data_str}\''
+        curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{line}?atomicProperties=1" --server-id {target_artifactory} -d @{temp_file.name}'
+        print(f"curl_command: {curl_command}")
         # Add the curl command to the list of commands
         commands = [
             f"jf rt dl {source_repo}/{line} . --threads=8 --server-id {source_artifactory}",
@@ -84,20 +92,24 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
             f"rm -rf {line}"
         ]
 
+    try:
+        # Execute the commands
+        any_command_failed = False
+        for command in commands:
+            result = subprocess.run(command, shell=True)
+            if result.returncode != 0:
+                any_command_failed = True
+                with open(os.path.join(current_dir, "failed_commands_file.txt"), "a") as f:
+                    f.write(f"Command failed: {command} , for: {source_repo}/{line}\n")
 
-    # Execute the commands
-    any_command_failed = False
-    for command in commands:
-        result = subprocess.run(command, shell=True)
-        if result.returncode != 0:
-            any_command_failed = True
-            with open(os.path.join(current_dir, "failed_commands_file.txt"), "a") as f:
-                f.write(f"Command failed: {command} , for: {source_repo}/{line}\n")
-
-    # If all commands succeeded, log the success message once for each artifact
-    if not any_command_failed:
-        with open(os.path.join(current_dir, "successful_commands_file.txt"), "a") as f:
-            f.write(f"All commands succeeded for: {source_repo}/{line}\n")
+        # If all commands succeeded, log the success message once for each artifact
+        if not any_command_failed:
+            with open(os.path.join(current_dir, "successful_commands_file.txt"), "a") as f:
+                f.write(f"All commands succeeded for: {source_repo}/{line}\n")
+    finally:
+        if escaped_modified_json and isinstance(escaped_modified_json, dict) and 'props' in escaped_modified_json and escaped_modified_json['props'] and len(escaped_modified_json['props']) >= 1:
+            # Clean up the temporary JSON file
+            os.remove(temp_file.name)
 
     os.chdir(current_dir)  # Return to the saved directory i.e "$OLDPWD"
 
@@ -130,15 +142,9 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
         json_data = prop_output.get("properties")
         print(f"json_data is: {json_data}")
         escaped_modified_json = {"props": json_data}
-        # print(f"escaped_modified_json is: {escaped_modified_json}")
+
         return escaped_modified_json
-        # # Check if the artifact has properties
-        # if 'errors' in prop_output and prop_output['errors'][0]['status'] != 404:
-        #     json_data = prop_output.get("properties")
-        #     if json_data:
-        #         # Construct the modified JSON data
-        #         escaped_modified_json = {"props": json_data}
-        #         return escaped_modified_json
+
     except subprocess.CalledProcessError as e:
         # Handle command execution errors
         print(f"Error executing command: {e}")
@@ -147,6 +153,7 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
         print(f"Error parsing JSON output: {e}")
 
     return None  # Return None if no properties or error occurred
+
 def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifactory, target_repo):
     """
     Migrate artifacts from source to target Artifactory.
