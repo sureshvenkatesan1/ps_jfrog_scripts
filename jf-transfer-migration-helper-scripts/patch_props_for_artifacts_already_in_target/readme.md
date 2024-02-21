@@ -85,7 +85,8 @@ Command successful: Properties are identical, skipping patching for artifact: he
 ```
 ---
 
-I prefer the above command insted of the followig whcih uses the bash xargs approach to run 16 such commands at a time using [runcommand_w_xargs_and_log_outcome.sh](../runcommand_in_parallel_as_bash_jobs/runcommand_w_xargs_and_log_outcome.sh):
+I prefer the above command instead of the followig which uses the bash xargs approach to run 16 such commands at a 
+time using [runcommand_w_xargs_and_log_outcome.sh](../runcommand_in_parallel_as_bash_jobs/runcommand_w_xargs_and_log_outcome.sh):
 ```
 ./patch_props_for_artifacts_in_target.sh usvartifactory5 liquid jfrogio liquid  test | tr '\n' '\0' | xargs -0 -P 16 -I {} ./runcommand_log_outcome.sh '{}' properties_patch_failed.txt
 ```
