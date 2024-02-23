@@ -11,8 +11,10 @@ python extract_version_and_tokens.py DOQ_access.backup.20240221141536.json
 python extract_version_and_tokens.py access.backup.20240221223922.json
 ```
 
-3. As per https://jfrog.com/help/r/how-to-import-access-data/subject get the Artifactory i.e jfrt service_id of the 
-target SAAS JPD.
+3. As per [How to import access data?](https://jfrog.com/help/r/how-to-import-access-data/subject)  and 
+[#173103](https://groups.google.com/a/jfrog.com/g/support-followup/c/f5kePgMUFKY/m/4x2psDOEAAAJ) and
+[#244681](https://groups.google.com/a/jfrog.com/g/support-followup/c/J7Z6iPGBoig/m/bJU0-rS-DgAJ) get the 
+   Artifactory i.e jfrt    service_id of  the target SAAS JPD.
 ``` 
 curl -uadmin:password -XGET "http://localhost:8081/artifactory/api/system/service_id" 
 ```
