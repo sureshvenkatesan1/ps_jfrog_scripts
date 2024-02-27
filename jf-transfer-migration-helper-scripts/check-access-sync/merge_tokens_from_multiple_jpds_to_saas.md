@@ -21,6 +21,11 @@ curl -uadmin:password -XGET "http://localhost:8081/artifactory/api/system/servic
 Output:
 jfrt@01hbgzkk2aa7h50j9eqctj1fvb
 
+Since this API needs  admin credentials we found that the Artifactory i.e jfrt   service_id can also be got 
+using the following API which does not need any credentials:
+```text
+curl -s -XGET https://bellca.jfrog.io/router/api/v1/system/health | jq -r '.services[] | select(.service_id | startswith("jfrt@")) | .service_id'
+```
 4. Get the unique jfrt or jf-artifactory token IDs:
 ```
 python get_unique_jfrt_ids.py UA-access.backup.20240221125844_modified.json
@@ -116,6 +121,7 @@ SAAS Production team knows how to create this for saas instance
 ```
 curl --verbose "http://localhost:8082/access/api/v1/import/entities/cloud" -XPOST -H "Authorization: Bearer  $MYTOKEN" -H "Content-Type: application/json" -d @final_tokens_to_import.json
 ```
+Note: This API is available even in Self Hosted Artifactory.
 
 ---
 
