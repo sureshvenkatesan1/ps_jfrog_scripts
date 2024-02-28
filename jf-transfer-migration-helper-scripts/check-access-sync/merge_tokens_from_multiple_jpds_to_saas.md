@@ -1,10 +1,12 @@
 
 ## Steps to merge the tokens from different JPDS to a single target SAAS JPD:
+The following steps show how to migrate the tokens from multiple JPDs (without using access federation) i.e using the 
+internal /access/api/v1/import/entities/cloud API as mentioned in https://git.jfrog.info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md
 
 1. cd to the folder containing the tokens from UA and DOQ JPDs that you want to merge to the https://example.jfrog.io 
 target SAAS JPD.
 
-2. Extract only the "version" and "tokens" from the 3 JPDs:
+2. Extract only the "version" and "tokens" from the 3 JPDs ( UA, DOQ, and SAAS) :
 ```
 python extract_version_and_tokens.py UA-access.backup.20240221125844.json
 python extract_version_and_tokens.py DOQ_access.backup.20240221141536.json
