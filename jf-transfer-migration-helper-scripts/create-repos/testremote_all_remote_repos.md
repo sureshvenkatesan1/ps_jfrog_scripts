@@ -1,6 +1,7 @@
 ## testremote_all_remote_repos.sh
 
-This script is designed to test remote repositories in JFrog Artifactory. It iterates through a list of remote repositories, tests each repository, and provides feedback on the test results.
+[testremote_all_remote_repos.sh](testremote_all_remote_repos.sh) script is designed to test remote repositories in JFrog Artifactory. It iterates 
+through a list of remote repositories, tests each repository, and provides feedback on the test results.
 
 ### Usage
 
