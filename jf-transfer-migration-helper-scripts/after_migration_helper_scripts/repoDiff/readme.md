@@ -1,9 +1,8 @@
 # Artifactory Repository Data Comparison
 
-The [repodiff.py](repodiff.py) is designed to compare two repositories in different JFrog Artifactory instances and 
-identifies 
-artifacts present 
-in the source repository but missing in the target repository. It also provides additional features such as extracting and sorting artifact statistics and filtering unwanted files.
+The [repodiff.py](repodiff.py) is designed to compare two repositories in different JFrog Artifactory instances and identifies artifacts present in the source repository but missing in the target repository. It fetches data from both repositories, compares the URIs (finds the diff only based on repo path and not checksum) , and generates reports of missing artifacts and statistics.
+
+It also provides additional features such as extracting and sorting artifact statistics and filtering unwanted files.
 
 It has same logic as the original script in 
 https://github.com/jfrog/artifactory-scripts/blob/master/replicationDiff/replicationDiff.sh
@@ -25,12 +24,22 @@ Before running the script, ensure you have the following prerequisites:
 3. Run the script with the following command:
 
 ```bash
-   python repodiff.py --source-artifactory SOURCE_ARTIFACTORY_ID --target-artifactory TARGET_ARTIFACTORY_ID --source-repo SOURCE_REPOSITORY_NAME --target-repo TARGET_REPOSITORY_NAME
+   python repodiff.py --source-artifactory SOURCE_ARTIFACTORY_ID --target-artifactory TARGET_ARTIFACTORY_ID \
+      --source-repo SOURCE_REPOSITORY_NAME --target-repo TARGET_REPOSITORY_NAME \
+      [--path-in-repo  <path_within_repository>]
 ```
+### Arguments:
+
+- `--source-artifactory`: The URL of the source Artifactory.
+- `--target-artifactory`: The URL of the target Artifactory.
+- `--source-repo`: The name of the source repository.
+- `--target-repo`: The name of the target repository.
+- `--path-in-repo` (optional): Path within the repository ( example: for repo docker-dev-local it can be app1/tag1 i.e the path with no repo name and ending "/" )
 
 The repodiff.py will perform the following actions:
 
 - Fetch artifact information from the source and target repositories.
+- Optionally, it can fetch data from a specific path within the repository if `--path-in-repo` parameter is provided.
 - Identify artifacts present in the source repository but missing in the target repository.
 - Calculate the total size of missing artifacts.
 - Write various output files with the results, including lists of unique URIs and statistics in the `test/output`  directory.

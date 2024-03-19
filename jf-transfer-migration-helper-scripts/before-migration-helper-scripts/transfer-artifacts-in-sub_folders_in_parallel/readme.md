@@ -68,6 +68,10 @@ So I improved on the the `transfer.sh` and wrote this [migrate_n_subfolders_in_p
 - migrate artifacts in the above mentioned monorepo from the source Artifactory instance to the target Artifactory instance as it supports migrating files and subfolders by traversing the tree recursively until it finds the leaf folder and then works it way up the tree. 
 - It also provides the option to transfer only the files in root folder ( and not the subfolders).
 - It also PATCHES the properties for all the migrated artifacts.
+- You can use it to transfer files in a specific folder ( and / or its subfolders as well).
+- It does the diff between the source and target not only based on repo path  and the checksum of the artifacts. The  checksum diff is useful when Dev builds overwrite an artifact previously published in the same  repo path ( for example the manifest.json of the docker images).
+
+It differs from  [repodiff.py](../../../after_migration_helper_scripts/repoDiff/repodiff.py)  which  finds the diff only based on repo path and not checksum.
 
 ## Usage
 
