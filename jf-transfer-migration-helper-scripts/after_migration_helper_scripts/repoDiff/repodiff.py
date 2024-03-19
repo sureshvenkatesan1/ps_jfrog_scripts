@@ -1,19 +1,29 @@
-import os
 import argparse
+import os
 import subprocess
 import json
 from datetime import datetime
 
 
 # Fetch artifacts list  from the  repository in the given artifactory.
-def fetch_repository_data(artifactory, repo, output_file):
+def fetch_repository_data(artifactory, repo, output_file, path_in_repo=None):
     # Got the storage API params from RTDEV-34024
-    command = [
-        "jf", "rt", "curl",
-        "-X", "GET",
-        f"/api/storage/{repo}/?list&deep=1&listFolders=0&mdTimestamps=1&statsTimestamps=1&includeRootPath=1",
-        "-L", "--server-id", artifactory
-    ]
+    if path_in_repo:
+        # API request with path_in_repo parameter
+        command = [
+            "jf", "rt", "curl",
+            "-X", "GET",
+            f"/api/storage/{repo}/{path_in_repo}?list&deep=1&listFolders=0&mdTimestamps=1&statsTimestamps=1&includeRootPath=1",
+            "-L", "--server-id", artifactory
+        ]
+    else:
+        # API request without path_in_repo parameter
+        command = [
+            "jf", "rt", "curl",
+            "-X", "GET",
+            f"/api/storage/{repo}/?list&deep=1&listFolders=0&mdTimestamps=1&statsTimestamps=1&includeRootPath=1",
+            "-L", "--server-id", artifactory
+        ]
     print("Executing command:", " ".join(command))
     try:
         with open(output_file, "w") as output:
@@ -76,7 +86,7 @@ def write_filepaths_nometadata(unique_uris,filepaths_nometadata_file,):
         for uri in unique_uris:
             file_name = uri.strip()
             if any(keyword in file_name for keyword in ["maven-metadata.xml", "Packages.bz2", ".gemspec.rz",
-                                                       "Packages.gz", "Release", ".json", "Packages", "by-hash", "filelists.xml.gz", "other.xml.gz", "primary.xml.gz", "repomd.xml", "repomd.xml.asc", "repomd.xml.key"]):
+                                                        "Packages.gz", "Release", ".json", "Packages", "by-hash", "filelists.xml.gz", "other.xml.gz", "primary.xml.gz", "repomd.xml", "repomd.xml.asc", "repomd.xml.key"]):
                 print(f"Excluded: as keyword in {file_name}")
             else:
                 print(f"Writing: {file_name}")
@@ -171,6 +181,7 @@ def main():
     parser.add_argument("--target-artifactory", required=True, help="Target Artifactory ID")
     parser.add_argument("--source-repo", required=True, help="Source repository name")
     parser.add_argument("--target-repo", required=True, help="Target repository name")
+    parser.add_argument("--path-in-repo", help="Optional parameter: Path within the repository")
     args = parser.parse_args()
 
     # Create the output directory if it doesn't exist
@@ -179,10 +190,10 @@ def main():
 
     # Fetch data from repositories
     source_log_file = os.path.join(output_dir, "source.log")
-    fetch_repository_data(args.source_artifactory, args.source_repo, source_log_file)
+    fetch_repository_data(args.source_artifactory, args.source_repo, source_log_file, args.path_in_repo)
     #
     target_log_file = os.path.join(output_dir, "target.log")
-    fetch_repository_data(args.target_artifactory, args.target_repo, target_log_file)
+    fetch_repository_data(args.target_artifactory, args.target_repo, target_log_file, args.path_in_repo)
 
     # Load the contents of the JSON files
     source_data = load_json_file(source_log_file)
@@ -192,14 +203,27 @@ def main():
     # source_uris = {item['uri'] for item in source_data['files'] if "_uploads/" not in item['uri']}
     # target_uris = {item['uri'] for item in target_data['files'] if "_uploads/" not in item['uri']}
 
-    source_uris = {item['uri'][1:] for item in source_data['files'] if "_uploads/" not in item['uri'] and
-                   "repository.catalog" not in item['uri']}
-    target_uris = {item['uri'][1:] for item in target_data['files'] if "_uploads/" not in item['uri'] and
-                "repository.catalog" not in item['uri']}
+    try:
+        source_uris = {item['uri'][1:] for item in source_data['files'] if "_uploads/" not in item['uri'] and
+                       "repository.catalog" not in item['uri']}
+    except KeyError:
+        print("Key 'files' not found in source_data. Please check the structure of the JSON file.")
+        return
 
+    try:
+        target_uris = {item['uri'][1:] for item in target_data['files'] if "_uploads/" not in item['uri'] and
+                       "repository.catalog" not in item['uri']}
+    except KeyError:
+        print("Key 'files' not found in target_data. Please check the structure of the JSON file.")
+        target_uris = set()
 
-    # Find the unique URIs and calculate the total size
-    unique_uris = sorted(source_uris - target_uris)
+    # Handle scenario when target_uris is empty or not initialized because the "--path-in-repo" does not exist in
+    # target artifactory
+    if not target_uris:
+        unique_uris = sorted(source_uris)
+    else:
+        # Find the unique URIs and calculate the total size
+        unique_uris = sorted(source_uris - target_uris)
     total_size = sum(item['size'] for item in source_data['files'] if item['uri'] in unique_uris)
 
     # Write the unique URIs to a file in the output folder
@@ -216,7 +240,7 @@ def main():
     filepaths_uri_stats_file=os.path.join(output_dir, "filepaths_uri_lastDownloaded_desc.txt")
     # write_artifact_stats_sort_desc(args.source_artifactory, args.source_repo, unique_uris, filepaths_uri_stats_file)
     write_artifact_stats_from_source_data( source_data, unique_uris,
-                                        filepaths_uri_stats_file)
+                                           filepaths_uri_stats_file)
 
     # Filter and write the unique URIs "without unwanted files" , to a file in the output folder
     filepaths_nometadata_file = os.path.join(output_dir, "filepaths_nometadatafiles.txt")

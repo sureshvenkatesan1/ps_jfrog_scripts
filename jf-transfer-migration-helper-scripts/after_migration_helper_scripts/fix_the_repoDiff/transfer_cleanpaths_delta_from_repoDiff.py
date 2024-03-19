@@ -83,7 +83,7 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
             f"jf rt u {line} {target_repo}/{line} --threads=8 --server-id {target_artifactory}",
             curl_command,
             f"rm -rf {line}"
-            ]
+        ]
     else:
         print(f"Not uploading properties: {escaped_modified_json}")
         commands = [
@@ -154,7 +154,7 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
 
     return None  # Return None if no properties or error occurred
 
-def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifactory, target_repo):
+def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifactory, target_repo, path_in_repo=None):
     """
     Migrate artifacts from source to target Artifactory.
 
@@ -198,8 +198,12 @@ def migrate_artifacts(input_file, source_artifactory, source_repo, target_artifa
                     print("Escaped modified JSON", escaped_modified_json)
                 else:
                     print("No properties found or error occurred.")
+
+                # Check if path_in_repo is provided and add prefix
+                if path_in_repo:
+                    line = f"{path_in_repo}/{line}"
                 execute_artifact_migration("workdir", source_repo, line, source_artifactory, target_repo,
-                                    target_artifactory, escaped_modified_json)
+                                           target_artifactory, escaped_modified_json)
 
 
 # Following script is commented because it is  not needed now as I found that the migrate_n_subfolders_in_parallel.sh
@@ -249,6 +253,8 @@ def main():
     parser.add_argument('source_repo', type=str, help='Source repository name.')
     parser.add_argument('target_artifactory', type=str, help='Target Artifactory URL.')
     parser.add_argument('target_repo', type=str, help='Target repository name.')
+    parser.add_argument('--path-in-repo', type=str, help='Optional parameter: Path within the repository')
+
     # parser.add_argument('transfer', type=str, help='Transfer yes/no.')
     # parser.add_argument('--migrate_recursively', type=str, help='MigrateFolderRecursively yes/no.')
     # parser.add_argument('--exclude_folders', type=str, help='Semicolon-separated exclude folders.')
@@ -260,7 +266,7 @@ def main():
     #                 args.target_artifactory, args.target_repo, args.transfer, args.migrate_recursively,
     #                 args.exclude_folders, args.parallel_count, args.outfile)
     migrate_artifacts(args.input_file, args.source_artifactory, args.source_repo,
-                      args.target_artifactory, args.target_repo)
+                      args.target_artifactory, args.target_repo, args.path_in_repo)
 
 if __name__ == "__main__":
     main()
