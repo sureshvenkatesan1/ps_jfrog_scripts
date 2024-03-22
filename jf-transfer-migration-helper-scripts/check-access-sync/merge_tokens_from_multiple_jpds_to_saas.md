@@ -1,7 +1,10 @@
 
 ## Steps to merge the tokens from different JPDS to a single target SAAS JPD:
-The following steps show how to migrate the tokens from multiple JPDs (without using access federation) i.e using the 
-internal /access/api/v1/import/entities/cloud API as mentioned in https://git.jfrog.info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md
+Below are the steps to migrate tokens from multiple JPDs without utilizing 'access federation'. Instead, we utilize the internal **/access/api/v1/import/entities/cloud** API when `access federation` fails to synchronize older tokens.
+This failure occurs because `access federation` only syncs new tokens immediately, while the access backlog is significant, leading to synchronization failures with **java.util.concurrent.TimeoutException** ( for older tokens). 
+
+For detailed instructions, refer to the documentation at https://git.jfrog.info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md.
+
 
 1. cd to the folder containing the tokens from UA and DOQ JPDs that you want to merge to the https://example.jfrog.io 
 target SAAS JPD.
@@ -238,3 +241,14 @@ Difference in file 2:
 
 ```
 
+The steps outlined above were utilized to address issue [289102](https://jfrog.lightning.force.com/lightning/r/Case/500Tc000004mJHTIA2/view).
+
+Additionally, due to user error (where the source JPD had LDAP integration while the SAAS instance had SAML integration, but some pipelines still used LDAP passwords, causing invalid credentials in the SAAS instance), users were blocked with the following error: "User xyz is blocked due to incorrect login attempts till 1709917726070."
+
+To prevent users from locking themselves out in an exponential backoff fashion, you can configure the following setting:
+
+```text
+artifactory.security.maxLoginBlockDelay=0
+```
+
+This setting will indefinitely delay suspension, as per the guidance provided in [Intermittent 403 errors while working with Artifactory](https://jfrog.com/help/r/artifactory-intermittent-403-errors-while-working-with-artifactory), until all scripts and pipelines start using Access tokens post-migration.
