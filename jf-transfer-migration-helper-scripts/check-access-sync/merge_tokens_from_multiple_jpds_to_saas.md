@@ -1,10 +1,17 @@
 
 ## Steps to merge the tokens from different JPDS to a single target SAAS JPD:
-Below are the steps to migrate tokens from multiple JPDs without utilizing 'access federation'. Instead, we utilize the internal **/access/api/v1/import/entities/cloud** API when `access federation` fails to synchronize older tokens.
-This failure occurs because `access federation` only syncs new tokens immediately, while the access backlog is significant, leading to synchronization failures with **java.util.concurrent.TimeoutException** ( for older tokens). 
+Below are the steps to migrate tokens from multiple JPDs without utilizing 'access federation'. 
 
-For detailed instructions, refer to the documentation at https://git.jfrog.info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md.
+Instead, we utilize the internal **/access/api/v1/import/entities/cloud** API when `access federation` fails to synchronize older tokens.
 
+This failure occurs because though `access federation` was syncing new tokens immediately, but while the access backlog is 
+significant, it causes synchronization failures with **java.util.concurrent.TimeoutException** ( for older tokens). 
+
+More details on the TimeoutException in  https://git.jfrog.
+info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md.
+
+
+Here are the steps:
 
 1. cd to the folder containing the tokens from UA and DOQ JPDs that you want to merge to the https://example.jfrog.io 
 target SAAS JPD.
