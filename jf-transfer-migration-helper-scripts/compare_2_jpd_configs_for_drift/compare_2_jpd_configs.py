@@ -44,6 +44,9 @@ def collect_data(jpd_url, jpd_token):
         elif entity_type == "Property Sets":
             entity_names = [property_set["name"] for property_set in entity_data]
             count = len(entity_names)
+        elif entity_type == "Repository Layouts":
+            entity_names = [layout["name"] for layout in entity_data]
+            count = len(entity_names)
         elif entity_type.startswith("Xray"):
             entity_names, count = get_xray_entity_names(entity_type, entity_data)
         elif entity_type.endswith("Repositories"):
@@ -80,6 +83,7 @@ def collect_data(jpd_url, jpd_token):
         ("Remote Repositories", "/artifactory/api/repositories?type=remote"),
         ("Virtual Repositories", "/artifactory/api/repositories?type=virtual"),
         ("Federated Repositories", "/artifactory/api/repositories?type=federated"),
+        ("Repository Layouts", "/artifactory/api/admin/repolayouts"),
         ("Users", "/access/api/v2/users"),
         ("Groups", "/access/api/v2/groups"),
         ("Permissions", "/access/api/v2/permissions"),
