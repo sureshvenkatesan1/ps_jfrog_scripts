@@ -52,9 +52,9 @@ fi
 # EXCLUDE_FOLDERS excludes the ".conan" folder as it is  a generated one when a conan repo is indexed during
 # artifact upload to that repo
 if [ $# -ge 8 ] && [ -n "${8}" ]; then
-    EXCLUDE_FOLDERS=";.conan;${8};"
+    EXCLUDE_FOLDERS=";.conan;.npm;${8};"
 else
-    EXCLUDE_FOLDERS=";.conan;"
+    EXCLUDE_FOLDERS=";.conan;.npm;"
 fi
 
 # jq_sed_command="jq '.results[]|(.path +\"/\"+ .name+\",\"+(.sha256|tostring))'  | sed  's/\.\///'"
