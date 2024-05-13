@@ -1,5 +1,5 @@
 
-# Fetch URIs for SHA1 Checksums Missing in BinaryStore but present in Artifactoy Database
+# Fetch URIs for SHA1 Checksums Missing in "S3" BinaryStore but present in Artifactoy "Database"
 
 ## Overview
 
