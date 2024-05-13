@@ -1,6 +1,3 @@
-Here's a comprehensive README file for your `fetch_uris_for_sha1.py` script, detailing
-
----
 
 # Fetch URIs for Missing SHA1 Checksums
 
