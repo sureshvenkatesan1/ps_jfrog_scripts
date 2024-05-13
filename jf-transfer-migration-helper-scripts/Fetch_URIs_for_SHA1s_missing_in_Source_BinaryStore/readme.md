@@ -1,18 +1,23 @@
 
-# Fetch URIs for Missing SHA1 Checksums
+# Fetch URIs for SHA1 Checksums Missing in BinaryStore but present in Artifactoy Database
 
 ## Overview
 
-This script fetches URIs for missing SHA1 checksums from JFrog Artifactory, particularly useful when using an S3 
+The [filestoreIntegrity.py](https://github.com/jfrog/artifactory-scripts/blob/master/filestoreIntegrity/filestoreIntegrity.py) script can be used to check for inconsistencies in your Artifactory filestore. 
+This is useful, for example, when some external process has deleted files directly from the filestore. 
+The JFrog knowledge base article,
+[How to check integrity of binaries in Artifactory database against filestore?](https://jfrog.com/help/r/how-to-check-integrity-of-binaries-in-artifactory-database-against-filestore/how-to-check-integrity-of-binaries-in-artifactory-database-against-filestore)
+mentions that the `filestoreIntegrity.py` script is not particularly fast or efficient, and may not be suitable for use on large Artifactory instances.
+
+Use the [fetch_uris_for_sha1.py](fetch_uris_for_sha1.py) script instead. 
+This script fetches URIs for missing SHA1 checksums from JFrog Artifactory   similar to `"Method 1"`  in the KB, and is particularly useful when using an S3 
 bucket as the filestore. It compares SHA1 checksums in the Artifactory database with those in the S3 filestore and identifies missing binaries.
 
-The URIs are URL-encoded to handle special characters in artifact names  as URI returned by the [Checksum Search](https://jfrog.com/help/r/jfrog-rest-apis/checksum-search) 
+Note: The URIs are URL-encoded to handle special characters in artifact names  as URI returned by the [Checksum Search](https://jfrog.com/help/r/jfrog-rest-apis/checksum-search) 
 REST call is not encoded  as per [RTFACT-9137](https://jfrog.atlassian.net/browse/RTFACT-9137) .
 
-The steps are similarly to `"Method 1"`  in the JFrog knowledge base article,
-[How to check integrity of binaries in Artifactory database against filestore?](https://jfrog.com/help/r/how-to-check-integrity-of-binaries-in-artifactory-database-against-filestore/how-to-check-integrity-of-binaries-in-artifactory-database-against-filestore)
-This is preferable to avoid the slow https://github.com/JFrogDev/artifactory-scripts/tree/master/filestoreIntegrity 
-mentioned in `"Method 3`.
+ 
+
 
 ## Prerequisites
 
