@@ -335,6 +335,7 @@ comm -23 <(sort all_virtual_repos_in_source.txt) <(sort all_virtual_repos_in_tar
 ```
 Create the missing repos using script similar to:
 ```text
+#! /bin/bash
 mkdir output
 cat local_repos_to_create.txt |  while read line
 do
@@ -342,6 +343,8 @@ REPO=$line
 echo "Getting configuration for "$REPO
 
         jf rt curl api/repositories/$REPO --server-id=$source >> output/$REPO-config.json
+        echo deleting repo -- $REPO on $target
+        jf rt curl  -X DELETE "/api/repositories/$REPO" --server-id=$target -s
         echo creating repo -- $REPO on $target
         data=$( jf rt curl  -X PUT api/repositories/$REPO -H "Content-Type: application/json" -T output/$REPO-config.json --server-id=$target -s | grep message | xargs)
         echo $data
@@ -350,11 +353,30 @@ echo "Getting configuration for "$REPO
         fi
 done
 ```
+You could also use the following while loop :
+```text
+while IFS= read -r line; do
+    REPO="$line"
+    # same logic as above script
+done < local_repos_to_create.txt
+```
 
+When using Windows Powershell you can use:
+```text
+mkdir output
+$repos = Get-Content -Path all_virtual_repos_in_source.txt 
+foreach ($repo in $repos) {
+	Write-Output ("Getting configuration for {0}" -f $repo)
+	jf rt curl api/repositories/$repo --server-id=YOUR-SOURCE-RT -s > output/$repo-config.json
+	Write-Output ("deleting repo -- {0} on YOUR-TARGET-SAAS-RT " -f $repo)
+	jf rt curl -X DELETE "/api/repositories/$repo" --server-id=YOUR-TARGET-SAAS-RT
+    Write-Output ("creating repo -- {0} on YOUR-TARGET-SAAS-RT" -f $repo)
+    $data=(jf rt curl -X PUT api/repositories/$repo -H "Content-Type: application/json" -T output/$repo-config.json --server-id=YOUR-TARGET-SAAS-RT -s)
+    Write-Output ($data)	
+}
+```
 
-or
-
-It can be created just using the "jf rt transfer-config-merge" .
+Another option is to create the missing repos  just using the "jf rt transfer-config-merge" .
 
 You can use shell command to read all lines in a file and print them in a single line with a semi-colon separator
 ```text
