@@ -71,5 +71,39 @@ python fetch_uris_for_sha1.py soleng missing_sha1s.txt missing_uris.txt
 
 By following these steps, you can effectively identify and fetch URIs for binaries missing in your S3 filestore, ensuring the integrity of your Artifactory instance. The script leverages JFrog CLI and `jq` for efficient processing and retrieval of data.
 
+More details of the uris in the `missing_uris.txt` can  be got using `jf`:
+For exmaple if the missing binary url is:
+`https://soleng.jfrog.io/artifactory/api/storage/AvanadeTest/giscus-main%20%282%29.zip`
+You can run:
+```
+jf rt curl "/api/storage/AvanadeTest/giscus-main%20%282%29.zip" --server-id=YOUR-SERVER-ID
+```
+To get output simialr to:
+```
+{
+  "repo" : "AvanadeTest",
+  "path" : "/giscus-main (2).zip",
+  "created" : "2024-04-30T06:02:42.005Z",
+  "createdBy" : "avanade",
+  "lastModified" : "2024-04-30T06:02:25.879Z",
+  "modifiedBy" : "avanade",
+  "lastUpdated" : "2024-04-30T06:02:42.006Z",
+  "downloadUri" : "https://soleng.jfrog.io/artifactory/AvanadeTest/giscus-main (2).zip",
+  "mimeType" : "application/zip",
+  "size" : "519367",
+  "checksums" : {
+    "sha1" : "fc8da3ae50723a8f98b693e965ea8f0b658a8565",
+    "md5" : "05409ef70e6db2f627f517047208363c",
+    "sha256" : "a7601bdccc351e4f48ecaedc8c641d45f81146ee2041411576f5132b0d0eef16"
+  },
+  "originalChecksums" : {
+    "sha1" : "fc8da3ae50723a8f98b693e965ea8f0b658a8565",
+    "md5" : "05409ef70e6db2f627f517047208363c",
+    "sha256" : "a7601bdccc351e4f48ecaedc8c641d45f81146ee2041411576f5132b0d0eef16"
+  },
+  "uri" : "https://soleng.jfrog.io/artifactory/api/storage/AvanadeTest/giscus-main (2).zip"
+}
+```
+
 ---
 
