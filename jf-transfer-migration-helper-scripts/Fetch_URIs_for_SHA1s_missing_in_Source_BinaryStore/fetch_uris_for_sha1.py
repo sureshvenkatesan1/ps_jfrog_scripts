@@ -1,5 +1,6 @@
 import argparse
 import subprocess
+from urllib.parse import urlparse, quote
 
 # usage:
 # python fetch_uris_for_sha1.py   <server_id> <missing_sha1s_file> <output_file>
@@ -12,7 +13,16 @@ def fetch_uris(server_id, missing_sha1s_file, output_file):
             cmd = f'jf rt curl "/api/search/checksum?sha1={sha1}" -s --server-id={server_id} | jq -r \'.results[].uri\''
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             if result.returncode == 0 and result.stdout:
-                outfile.write(result.stdout)
+                for uri in result.stdout.splitlines():
+                    parsed_uri = urlparse(uri)
+                    path_parts = parsed_uri.path.rsplit('/', 1)
+                    if len(path_parts) == 2:
+                        directory, filename = path_parts
+                        encoded_filename = quote(filename)
+                        encoded_uri = f"{parsed_uri.scheme}://{parsed_uri.netloc}{directory}/{encoded_filename}"
+                    # else:
+                    #     encoded_uri = quote(parsed_uri.path, safe=':/')
+                    outfile.write(encoded_uri + "\n")
             print(f"Processed SHA1: {sha1}")
 
     print(f"Completed fetching URIs. Check {output_file} for results.")
