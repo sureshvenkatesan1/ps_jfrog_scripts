@@ -11,7 +11,11 @@
 
 #!/bin/bash
 
-# ./migrate_n_subfolders_in_parallel.sh usvartifactory5 liquid jfrogio liquid  no  
+# Enable exit on error and set debug trap
+#set -e
+trap 'echo "Executing: $BASH_COMMAND"' DEBUG
+
+# ./migrate_n_subfolders_in_parallel.sh usvartifactory5 liquid jfrogio liquid  no
 # Check if at least the first 5 required parameters are provided
 if [ $# -lt 5 ]; then
     echo "Usage: $0 <source-artifactory> <source-repo> <target-artifactory> <target-repo> <transfer yes/no> \
@@ -92,7 +96,7 @@ execute_artifact_migration() {
 
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
     if [ ${#escaped_modified_json} -gt 1 ]; then
-        # Execute the commands for a single artifact 
+        # Execute the commands for a single artifact
         cd "$folder_position" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
         jf rt u "$line" "$target_repo/$line" --threads=8 --server-id "$target_artifactory" && \
@@ -107,7 +111,7 @@ execute_artifact_migration() {
             echo "All commands succeeded for: $source_repo/$line" >> "$current_dir/$successful_commands_file"
         fi
     else
-        # Execute the commands for a single artifact 
+        # Execute the commands for a single artifact
         cd "$folder_position" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
         jf rt u "$line" "$target_repo/$line" --threads=8 --server-id "$target_artifactory" && \
@@ -124,8 +128,8 @@ execute_artifact_migration() {
 
 
 run_migrate_command() {
-   
-    local src_list_command="$1" 
+
+    local src_list_command="$1"
     local target_list_command="$2"
     local folder_to_migrate="$3"
     local folder_position="$4"  # Pass the folder position as an argument
@@ -133,7 +137,7 @@ run_migrate_command() {
     local top_or_inner="$6"
 
     mkdir -p $folder_position
-  
+
 
     context=$(echo "$folder_to_migrate" | tr '/' '_' | tr '.' '_')
     context="${context}_${top_or_inner}"
@@ -147,7 +151,7 @@ run_migrate_command() {
     # Log what is currently running
     echo "Running commands: $src_list_command [Progress: $folder_position out of $sibling_folder_count sub folders] $target_list_command" >> "$all_commands_file"
 
-    
+
 
     # Run the command
     # echo "$src_list_command"
@@ -174,16 +178,16 @@ run_migrate_command() {
     #  set +x
     if [ $src_exit_status -eq 0 ] && [ $target_exit_status -eq 0 ]; then
         echo $src_output > "${a}.tmp"
-        echo "In run_migrate_command - 1 - b4 calling jq" 
+        echo "In run_migrate_command - 1 - b4 calling jq"
         # cat "${a}.tmp"
         cat "${a}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed 's/\.\///'  > "$a"
-        echo "In run_migrate_command - 2 - after calling jq" 
+        echo "In run_migrate_command - 2 - after calling jq"
 
         echo "$target_output" > "${b}.tmp"
-        echo "In run_migrate_command - 3 - b4 calling jq" 
+        echo "In run_migrate_command - 3 - b4 calling jq"
         # cat "${b}.tmp"
         cat "${b}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed  's/\.\///'  > "$b"
-        echo "In run_migrate_command - 4 - after calling jq" 
+        echo "In run_migrate_command - 4 - after calling jq"
 
         #join -v1  <(sort "$a") <(sort "$b") | sed -re 's/,[[:alnum:]]+"$/"/g' | sed 's/"//g'| sed  '/\(index\.json\|\.timestamp\|conanmanifest\.txt\)$/d' > "$c"
         # join -v1  <(sort "$a") <(sort "$b") | sed -E -e 's/,[[:alnum:]]+"$/"/g' -e 's/"//g' -e '/(index\.json|\.timestamp|conanmanifest\.txt)$/d' > "$c"
@@ -229,13 +233,13 @@ run_migrate_command() {
                             #  escaped_modified_json=$(echo "$modified_json" | sed 's/"/\\"/g')
                             escaped_modified_json="{\"props\": $json_data}"
                             # Run the PATCH request using the modified JSON data to set the properties for the artifact after upload
-                        
+
                         fi
                         # Execute the migration commands for a single file in the background
                         execute_artifact_migration "$folder_position" "$source_repo" "$line" "$source_artifactory" \
                         "$target_repo" "$target_artifactory" "$escaped_modified_json" &
 
-                        # Limit the number of concurrent background execute_artifact_migration jobs 
+                        # Limit the number of concurrent background execute_artifact_migration jobs
                         job_count=$(jobs -p | wc -l)
                         if [ "$job_count" -ge "$parallel_count" ]; then
                             wait
@@ -245,9 +249,9 @@ run_migrate_command() {
                     fi
 
                 done < "$c"
-            else 
+            else
                 echo "Wrong 5th Parameter, 5th parameter value should be yes or no"
-            fi 
+            fi
         else
             echo "The file $c is either empty or doesn't exist."
         fi
@@ -260,7 +264,7 @@ run_migrate_command() {
 
 # Function to run the migration for a folder and its sub-folders
 run_migration_for_folder() {
-    local src_list_command="$1" 
+    local src_list_command="$1"
     local target_list_command="$2"
     local folder_to_migrate="$3"
     local folder_position="$4"  # Pass the folder position as an argument
@@ -289,11 +293,18 @@ migrateFolderRecursively(){
 
     # Iterate until the stack is empty
     while [ ${#folder_stack[@]} -gt 0 ]; do
-        # Pop the top folder from the stack
-        l_root_folder="${folder_stack[-1]}"
-        unset 'folder_stack[${#folder_stack[@]}-1]'
+        # Print the contents of the folder_stack
+        echo "Current folder_stack contents:"
+        for folder in "${folder_stack[@]}"; do
+            echo "----->$folder"
+        done
 
-        echo "Processing folder: $l_root_folder"
+        # Pop the top folder from the stack safely
+        l_root_folder="${folder_stack[0]}"
+        folder_stack=("${folder_stack[@]:1}")
+
+        # Print l_root_folder for debugging
+        # echo "Processing folder: $l_root_folder"
 
         # Find all the sub-folders of the $l_root_folder
         if [ "$l_root_folder" != "." ]; then
@@ -357,7 +368,7 @@ migrateFolderRecursively(){
 
 
 processFolderContents() {
-    local folder_to_migrate="$1"  
+    local folder_to_migrate="$1"
 
     echo " In processFolderContents folder_to_migrate is '$folder_to_migrate'"
 
@@ -365,14 +376,14 @@ processFolderContents() {
     src_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $source_artifactory --insecure \
     --data 'items.find({\"repo\":  {\"\$eq\":\"$source_repo\"}, \"path\": {\"\$match\": \"$folder_to_migrate\"},\
         \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")'"
-    
+
 
     target_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $target_artifactory --insecure \
     --data 'items.find({\"repo\":  {\"\$eq\":\"$target_repo\"}, \"path\": {\"\$match\": \"$folder_to_migrate\"},\
         \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")'"
 
 
-    #Call the migrate command without the trailing * to migrate files in  $folder_to_migrate  
+    #Call the migrate command without the trailing * to migrate files in  $folder_to_migrate
     #folder_to_migrate="${folder_to_migrate/%\*/}"  # Remove the trailing "*"
     # run_migration_for_folder "$src_files_list_in_this_folder_command" "$target_files_list_in_this_folder_command" "$folder_to_migrate" "$((folder_position+1))" "$total_folders"
     run_migration_for_folder "$src_command1" "$target_command1" "$folder_to_migrate" "1" "1" "top"
@@ -392,7 +403,7 @@ processFolderContents() {
     # So folder 0 should already be empty.
 
 
-    # Check if the folder exists        
+    # Check if the folder exists
     if [ -d "1/$folder_to_migrate" ]; then
         # Check if the folder is empty
         if [ -z "$(find 1/$folder_to_migrate -type f 2>/dev/null)" ]; then
@@ -425,7 +436,7 @@ target_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/a
 
 
 
-#Call the migrate command without the trailing * to migrate files in the $root_folder 
+#Call the migrate command without the trailing * to migrate files in the $root_folder
 run_migrate_command "$src_command1" "$target_command1" "$root_folder" "0" "0" "top"
 
 
