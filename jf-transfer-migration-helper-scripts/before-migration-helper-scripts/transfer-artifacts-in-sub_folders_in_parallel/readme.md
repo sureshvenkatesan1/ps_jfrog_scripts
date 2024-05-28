@@ -107,6 +107,7 @@ comm ( which you can install using "sudo yum install coreutils")
 tr
 sed
 ```
+Note: Regularly clean up the `jfrog-cli*.log` files located in your `~/.jfrog/logs` folder. This script executes numerous JFrog CLI commands, each generating a new `jfrog-cli*.log` file.
 
 ## Execution
 The script creates an "output" folder and runs the migration inside it. It processes files and subfolders in parallel to optimize performance.
