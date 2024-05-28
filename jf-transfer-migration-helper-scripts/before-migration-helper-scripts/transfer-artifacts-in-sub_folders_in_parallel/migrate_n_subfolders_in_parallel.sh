@@ -19,7 +19,8 @@ trap 'echo "Executing: $BASH_COMMAND"' DEBUG
 # Check if at least the first 5 required parameters are provided
 if [ $# -lt 5 ]; then
     echo "Usage: $0 <source-artifactory> <source-repo> <target-artifactory> <target-repo> <transfer yes/no> \
-    [root-folder] [migrateFolderRecursively yes/no] [semicolon separated exclude_folders]"
+    [root-folder] [target_repo_root_folder] [migrateFolderRecursively yes/no] [semicolon separated exclude_folders] \
+    [parallel background jobs count]"
     exit 1
 fi
 
@@ -42,21 +43,28 @@ else
     root_folder="."
 fi
 
-
-# Check if the 7th argument is provided and not empty
+# Check if the 7th parameter (target-repo-root-folder) is provided
 if [ $# -ge 7 ] && [ -n "${7}" ]; then
-    # Check if the 7th argument is either "yes" or "no"
-    if [ "${7}" = "yes" ] || [ "${7}" = "no" ]; then
-        migratefiles_and_subfolders_recursive="${7}"
+    target_repo_root_folder="${7}"
+else
+    target_repo_root_folder=""
+fi
+
+
+# Check if the 8th argument is provided and not empty
+if [ $# -ge 8 ] && [ -n "${8}" ]; then
+    # Check if the 8th argument is either "yes" or "no"
+    if [ "${8}" = "yes" ] || [ "${8}" = "no" ]; then
+        migratefiles_and_subfolders_recursive="${8}"
     else
-        echo "Error: The 7th argument must be 'yes' or 'no'. Using default value 'yes'."
+        echo "Error: The 8th argument must be 'yes' or 'no'. Using default value 'yes'."
     fi
 fi
 
 # EXCLUDE_FOLDERS excludes the ".conan" folder as it is  a generated one when a conan repo is indexed during
 # artifact upload to that repo
-if [ $# -ge 8 ] && [ -n "${8}" ]; then
-    EXCLUDE_FOLDERS=";.conan;.npm;${8};"
+if [ $# -ge 9 ] && [ -n "${9}" ]; then
+    EXCLUDE_FOLDERS=";.conan;.npm;${9};"
 else
     EXCLUDE_FOLDERS=";.conan;.npm;"
 fi
@@ -64,11 +72,11 @@ fi
 # jq_sed_command="jq '.results[]|(.path +\"/\"+ .name+\",\"+(.sha256|tostring))'  | sed  's/\.\///'"
 
 # Counter to limit parallel  execution i.e max number of concurrent background execute_artifact_migration jobs
-if [ $# -ge 9 ] && [[ "${9}" =~ ^[0-9]+$ ]]; then
-    parallel_count="${9}"
+if [ $# -ge 10 ] && [[ "${10}" =~ ^[0-9]+$ ]]; then
+    parallel_count="${10}"
     echo "parallel_count has been set to: $parallel_count"
 else
-    echo "Error: The 9th argument (parallel_count) must be an integer. Using default value 16."
+    echo "Error: The 10th argument (parallel_count) must be an integer. Using default value 16."
     parallel_count=16
 fi
 
@@ -92,36 +100,40 @@ execute_artifact_migration() {
     # Save the current directory to a variable
     local current_dir="$(pwd)"
 
-
+    if [ -n "$target_repo_root_folder" ]; then
+        target_path="$target_repo/$target_repo_root_folder/$line"
+    else
+        target_path="$target_repo/$line"
+    fi
 
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
     if [ ${#escaped_modified_json} -gt 1 ]; then
         # Execute the commands for a single artifact
         cd "$folder_position" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
-        jf rt u "$line" "$target_repo/$line" --threads=8 --server-id "$target_artifactory" && \
-        jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/$target_repo/$line?atomicProperties=1" \
+        jf rt u "$line" "$target_path" --threads=8 --server-id "$target_artifactory" && \
+        jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/$target_path?atomicProperties=1" \
          --server-id "$target_artifactory" -d "$escaped_modified_json" && \
         #echo "In $(pwd). Now removing $line ----------------->" && \
         rm -rf "$line" && \
         cd "$current_dir" # Return to the saved directory i.e "$OLDPWD"
         if [ $? -ne 0 ]; then
-            echo "At least one command failed for: $source_repo/$line" >> "$current_dir/$failed_commands_file"
+            echo "At least one command failed for: $source_repo/$line" | tee -a "$current_dir/$failed_commands_file"
         else
-            echo "All commands succeeded for: $source_repo/$line" >> "$current_dir/$successful_commands_file"
+            echo "All commands succeeded for: $source_repo/$line" | tee -a "$current_dir/$successful_commands_file"
         fi
     else
         # Execute the commands for a single artifact
         cd "$folder_position" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
-        jf rt u "$line" "$target_repo/$line" --threads=8 --server-id "$target_artifactory" && \
+        jf rt u "$line" "$target_path" --threads=8 --server-id "$target_artifactory" && \
         #echo "In $(pwd). Now removing $line ----------------->" && \
         rm -rf "$line" && \
         cd "$current_dir" # Return to the saved directory i.e "$OLDPWD"
         if [ $? -ne 0 ]; then
-            echo "At least one command failed for: $source_repo/$line" >> "$current_dir/$failed_commands_file"
+            echo "At least one command failed for: $source_repo/$line" | tee -a "$current_dir/$failed_commands_file"
         else
-            echo "All commands succeeded for: $source_repo/$line" >> "$current_dir/$successful_commands_file"
+            echo "All commands succeeded for: $source_repo/$line" | tee -a "$current_dir/$successful_commands_file"
         fi
     fi
 }
@@ -149,7 +161,10 @@ run_migrate_command() {
 
 
     # Log what is currently running
-    echo "Running commands: $src_list_command [Progress: $folder_position out of $sibling_folder_count sub folders] $target_list_command" >> "$all_commands_file"
+    echo "[Progress: $folder_position out of $sibling_folder_count sub folders]" | tee -a "$all_commands_file"
+    echo "Running commands:" | tee -a "$all_commands_file"
+    echo "$src_list_command" | tee -a "$all_commands_file"
+    echo "$target_list_command" | tee -a "$all_commands_file"
 
 
 
@@ -163,31 +178,29 @@ run_migrate_command() {
     src_exit_status=$?
 
     if [ $src_exit_status -ne 0 ]; then
-        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $src_list_command"
-        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $src_list_command" >> "$failed_commands_file"
+        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $src_list_command" | tee -a "$failed_commands_file"
     fi
 
     target_output=$(eval "$target_list_command")
     target_exit_status=$?
 
     if [ $target_exit_status -ne 0 ]; then
-        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $target_list_command"
-        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $target_list_command" >> "$failed_commands_file"
+        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $target_list_command" | tee -a "$failed_commands_file"
     fi
     # Disable debugging when no longer needed
     #  set +x
     if [ $src_exit_status -eq 0 ] && [ $target_exit_status -eq 0 ]; then
         echo $src_output > "${a}.tmp"
-        echo "In run_migrate_command - 1 - b4 calling jq"
+#        echo "In run_migrate_command - 1 - b4 calling jq"
         # cat "${a}.tmp"
         cat "${a}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed 's/\.\///'  > "$a"
-        echo "In run_migrate_command - 2 - after calling jq"
+#        echo "In run_migrate_command - 2 - after calling jq"
 
         echo "$target_output" > "${b}.tmp"
-        echo "In run_migrate_command - 3 - b4 calling jq"
+#        echo "In run_migrate_command - 3 - b4 calling jq"
         # cat "${b}.tmp"
         cat "${b}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed  's/\.\///'  > "$b"
-        echo "In run_migrate_command - 4 - after calling jq"
+#        echo "In run_migrate_command - 4 - after calling jq"
 
         #join -v1  <(sort "$a") <(sort "$b") | sed -re 's/,[[:alnum:]]+"$/"/g' | sed 's/"//g'| sed  '/\(index\.json\|\.timestamp\|conanmanifest\.txt\)$/d' > "$c"
         # join -v1  <(sort "$a") <(sort "$b") | sed -E -e 's/,[[:alnum:]]+"$/"/g' -e 's/"//g' -e '/(index\.json|\.timestamp|conanmanifest\.txt)$/d' > "$c"
@@ -215,8 +228,8 @@ run_migrate_command() {
                     # echo $prop_output
 
                     if [ $prop_exit_status -ne 0 ]; then
-                        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $get_item_properties_cmd"
-                        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $get_item_properties_cmd" >> "$failed_commands_file"
+                        echo "Error: Command failed for folder: $folder_to_migrate - Run Command: $get_item_properties_cmd" | tee -a "$failed_commands_file"
+
                     else
                         # Check the status code and process the JSON data
                         echo "In run_migrate_command - 5 - b4 calling jq"
@@ -313,12 +326,12 @@ migrateFolderRecursively(){
             output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
         fi
 
-        echo "In migrateFolderRecursively - 1 - b4 calling jq"
+#        echo "In migrateFolderRecursively - 1 - b4 calling jq"
         # Parse the JSON output using jq and get the "uri" values for folders
         # echo "$output"
         folders=$(echo "$output"  | jq -r '.files[] | select(has("folder") and .folder != null and .folder == true and has("uri") and .uri != null) |  .uri')
 
-        echo "In migrateFolderRecursively - 2 - after calling jq"
+#        echo "In migrateFolderRecursively - 2 - after calling jq"
 
         # Split folders into an array
         IFS=$'\n' read -rd '' -a folders_array <<< "$folders"
@@ -370,7 +383,10 @@ migrateFolderRecursively(){
 processFolderContents() {
     local folder_to_migrate="$1"
 
-    echo " In processFolderContents folder_to_migrate is '$folder_to_migrate'"
+#    echo " In processFolderContents folder_to_migrate is '$folder_to_migrate'"
+    echo "In processFolderContents folder_to_migrate is '$folder_to_migrate'" | tee -a "$all_commands_file"
+
+
 
     # migrate files in the sub-folder
     src_command1="jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $source_artifactory --insecure \
@@ -399,6 +415,7 @@ processFolderContents() {
     wait
 
     # Loop through the folders numbered >=1  i.e output/1 , output/2 .. and delete the folders .
+    # Loop through the folders numbered >=1  i.e output/1 , output/2 .. and delete the folders .
     # The files in folder 0 are artifacts so are already deleted.
     # So folder 0 should already be empty.
 
@@ -408,11 +425,11 @@ processFolderContents() {
         # Check if the folder is empty
         if [ -z "$(find 1/$folder_to_migrate -type f 2>/dev/null)" ]; then
         #if [ "$(du -s $((folder_position+1))/$folder_to_migrate | awk '{print $1}')" -eq 0 ]; then
-            echo "Folder 1/$folder_to_migrate is empty, removing..." >> "$successful_commands_file"
+            echo "Folder 1/$folder_to_migrate is empty, removing..." | tee -a "$successful_commands_file"
             rm -rf "1/$folder_to_migrate"
         else
-            echo "Folder '1/$folder_to_migrate' is not empty." >> "$failed_commands_file"
-            echo "$(du -s 1/$folder_to_migrate | awk '{print $1}')"  >> "$failed_commands_file"
+            echo "Folder '1/$folder_to_migrate' is not empty." | tee -a "$failed_commands_file"
+            echo "$(du -s 1/$folder_to_migrate | awk '{print $1}')"  | tee -a "$failed_commands_file"
             # Add additional actions for non-empty folders here if needed
         fi
     fi
@@ -446,5 +463,5 @@ if [ "$migratefiles_and_subfolders_recursive" = "yes" ]; then
     migrateFolderRecursively "$root_folder"
 fi
 
-echo "All transfers for $source_repo completed" >> "$successful_commands_file"
+echo "All transfers for $source_repo completed" | tee -a "$successful_commands_file"
 

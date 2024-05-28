@@ -77,8 +77,9 @@ It differs from  [repodiff.py](../../../after_migration_helper_scripts/repoDiff/
 
 ```bash
 ./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> \ 
-<target-artifactory-serverid>  <target-repo> <transfer yes/no> [root-folder] \
-[migrateFolderRecursively yes/no] [semicolon-separated exclude_folders] [parallel_count]
+<target-artifactory-serverid>  <target-repo> <transfer yes/no> \
+    [root-folder] [target_repo_root_folder] [migrateFolderRecursively yes/no] [semicolon separated exclude_folders] \
+    [parallel background jobs count]"
 ```
 
 - source-artifactory: The source Artifactory instance.
@@ -86,7 +87,12 @@ It differs from  [repodiff.py](../../../after_migration_helper_scripts/repoDiff/
 - target-artifactory: The target Artifactory instance.
 - target-repo: The target repository in the target Artifactory instance.
 - transfer yes/no: Specify 'yes' to transfer files or 'no' to perform other operations without transferring.
-- root-folder (optional): The root folder to start the migration from (default is the "." i.e the repositoy's root directory).
+- root-folder (optional): The source repo root folder to start the migration from (default is the "." i.e the 
+  source repository's root directory).
+- target_repo_root_folder (optional): The target repo folder to  copy to. 
+Note: If you have you specify any of the remaining `optional` parameters  then you have to specify the 
+  target_repo_root_folder. If not overriding the target_repo_root_folder specify it as an empty string i.e "" , so 
+  that you can pass the remaining optional parameters.
 - migrateFolderRecursively yes/no (optional): Specify 'yes' to migrate subfolders recursively or 'no' to only migrate the root folder (default is 'yes').
 - semicolon-separated exclude_folders (optional): List of folders to exclude from migration, separated by semicolons. ( default is ';.conan;')
 - parallel_count (optional): Counter to limit parallel  execution i.e max number of concurrent background
@@ -149,12 +155,21 @@ or
 
 To migrate a specific folder "com/xyz/ndce/tools/ndce-host" recursively run as:
 ```
-./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> <target-repo> yes "com/xyz/ndce/tools/ndce-host" yes
+./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> 
+<target-repo> yes "com/xyz/ndce/tools/ndce-host" "" yes
 ```
+To migrate a specific folder "com/xyz/ndce/tools/ndce-host" recursively to the target <target-repo> under folder 
+`abc/test` run as :
+```
+./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> 
+<target-repo> yes "com/xyz/ndce/tools/ndce-host" "abc/test" yes
+```
+
 To exclude certain folders from transferring to target artifactory you can pass as 
 [semicolon-separated exclude_folders] as:
 ```
-./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> <target-repo> yes . yes "folder1;folder2"
+./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> <target-artifactory-serverid> 
+<target-repo> yes . "" yes "folder1;folder2"
 ```
 
 You can run it using screen utility using:
@@ -177,14 +192,14 @@ So when you migrate a docker repo verify that the `DRY RUN` (i.e <transfer>  set
 cd <any working folder where you run the script , say /tmp>
 
 bash ./migrate_n_subfolders_in_parallel.sh <source-artifactory-serverid> <source-repo> \
-<target-artifactory-serverid> <target-repo> <transfer yes/no> [root-folder] \
+<target-artifactory-serverid> <target-repo> <transfer yes/no> [root-folder] [target_repo_root_folder] \
 [migrateFolderRecursively yes/no] [semicolon-separated exclude_folders]
 ```
 
 For example:
 ```text
 bash /tmp/migrate_n_subfolders_in_parallel.sh soleng adamr-test-docker \
-proservicesone test-docker no . yes \
+proservicesone test-docker no . "" yes \
 ".jfrog;adamjfrogtest;adamrjfrogtest2;adamrjfrogtest3;adamrjfrogtest4;adamrjfrogtest5"
 ```
 
@@ -192,7 +207,7 @@ Then do the actual transfer using without the `DRY RUN` (i.e <transfer>  set to 
 
 ```text
 bash /tmp/migrate_n_subfolders_in_parallel.sh soleng adamr-test-docker \
-proservicesone test-docker yes . yes \
+proservicesone test-docker yes . "" yes \
 ".jfrog;adamjfrogtest;adamrjfrogtest2;adamrjfrogtest3;adamrjfrogtest4;adamrjfrogtest5"
 ```
 ---
