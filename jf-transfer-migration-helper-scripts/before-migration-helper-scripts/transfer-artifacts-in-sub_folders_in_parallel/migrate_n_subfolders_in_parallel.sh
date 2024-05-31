@@ -100,6 +100,9 @@ execute_artifact_migration() {
     # Save the current directory to a variable
     local current_dir="$(pwd)"
 
+    # Reapply the DEBUG trap within the function
+    trap 'echo "Executing: $BASH_COMMAND"' DEBUG
+
     if [ -n "$target_repo_root_folder" ]; then
         target_path="$target_repo/$target_repo_root_folder/$line"
     else
@@ -109,12 +112,14 @@ execute_artifact_migration() {
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
     if [ ${#escaped_modified_json} -gt 1 ]; then
         # Execute the commands for a single artifact
+        encoded_target_path=$(urlencode_spaces "$target_path")
         cd "$folder_position" && \
+        echo "Executing: jf rt dl \"$source_repo/$line\" . --threads=8 --server-id \"$source_artifactory\"" | tee -a "$all_commands_file" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
+        echo "Executing: jf rt u \"$line\" \"$target_path\" --threads=8 --server-id \"$target_artifactory\"" | tee -a "$all_commands_file" && \
         jf rt u "$line" "$target_path" --threads=8 --server-id "$target_artifactory" && \
-        jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/$target_path?atomicProperties=1" \
-         --server-id "$target_artifactory" -d "$escaped_modified_json" && \
-        #echo "In $(pwd). Now removing $line ----------------->" && \
+        echo "Executing: jf rt curl -k -sL -XPATCH -H \"Content-Type: application/json\" \"/api/metadata/$encoded_target_path?atomicProperties=1\" --server-id \"$target_artifactory\" -d \"$escaped_modified_json\"" | tee -a "$all_commands_file" && \
+        jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/$encoded_target_path?atomicProperties=1" --server-id "$target_artifactory" -d "$escaped_modified_json" && \
         rm -rf "$line" && \
         cd "$current_dir" # Return to the saved directory i.e "$OLDPWD"
         if [ $? -ne 0 ]; then
@@ -125,9 +130,10 @@ execute_artifact_migration() {
     else
         # Execute the commands for a single artifact
         cd "$folder_position" && \
+        echo "Executing: jf rt dl \"$source_repo/$line\" . --threads=8 --server-id \"$source_artifactory\"" | tee -a "$all_commands_file" && \
         jf rt dl "$source_repo/$line" . --threads=8 --server-id "$source_artifactory" && \
+        echo "Executing: jf rt u \"$line\" \"$target_path\" --threads=8 --server-id \"$target_artifactory\"" | tee -a "$all_commands_file" && \
         jf rt u "$line" "$target_path" --threads=8 --server-id "$target_artifactory" && \
-        #echo "In $(pwd). Now removing $line ----------------->" && \
         rm -rf "$line" && \
         cd "$current_dir" # Return to the saved directory i.e "$OLDPWD"
         if [ $? -ne 0 ]; then
@@ -137,6 +143,7 @@ execute_artifact_migration() {
         fi
     fi
 }
+
 
 
 run_migrate_command() {
@@ -191,15 +198,16 @@ run_migrate_command() {
     #  set +x
     if [ $src_exit_status -eq 0 ] && [ $target_exit_status -eq 0 ]; then
         echo $src_output > "${a}.tmp"
-#        echo "In run_migrate_command - 1 - b4 calling jq"
-        # cat "${a}.tmp"
-        cat "${a}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed 's/\.\///'  > "$a"
+        echo "In run_migrate_command - 1 - b4 calling jq"
+#        cat "${a}.tmp"
+        cat "${a}.tmp" | jq  '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | ((.path + "/" + .name) | sub("^\\./"; "")) + "," + (.sha256|tostring)'  > "$a"
 #        echo "In run_migrate_command - 2 - after calling jq"
+#        cat "${a}"
 
         echo "$target_output" > "${b}.tmp"
 #        echo "In run_migrate_command - 3 - b4 calling jq"
         # cat "${b}.tmp"
-        cat "${b}.tmp" | jq '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | (.path + "/" + .name + "," + (.sha256|tostring))' | sed  's/\.\///'  > "$b"
+        cat "${b}.tmp" | jq  '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | ((.path + "/" + .name) | sub("^\\./"; "")) + "," + (.sha256|tostring)'  > "$b"
 #        echo "In run_migrate_command - 4 - after calling jq"
 
         #join -v1  <(sort "$a") <(sort "$b") | sed -re 's/,[[:alnum:]]+"$/"/g' | sed 's/"//g'| sed  '/\(index\.json\|\.timestamp\|conanmanifest\.txt\)$/d' > "$c"
@@ -208,6 +216,7 @@ run_migrate_command() {
         # join -v1  <(sort "$a") <(sort "$b") | sed -E -e 's/,[[:alnum:]]+"$/"/g' -e 's/"//g'  > "$c"
         # comm -23 <(sort "$a") <(sort "$b") | sed -E -e 's/,[[:alnum:]]+"$/"/g' -e 's/"//g'  > "$c"
         comm -23 <(sort "$a") <(sort "$b") | awk '{gsub(/,[[:alnum:]]+\"$/, "\""); gsub(/"/, ""); print}' > "$c"
+
         # Check if the file exists and is not empty
         if [ -s "$c" ]; then
             if [ "${TRANSFERONLY}" = "no" ]; then
@@ -220,9 +229,13 @@ run_migrate_command() {
                 while IFS= read -r line
                 do
 
+                    # If the file path i.e the $line has a space in the folder or file name then encode it:
+                    encoded_file_path=$(urlencode_spaces "$line")
+
+
                     # Does the artifact have properties
-                    get_item_properties_cmd="jf rt  curl -s -k -XGET \"/api/storage/$source_repo/$line?properties\" --server-id $source_artifactory"
-                    # echo $get_item_properties_cmd
+                    get_item_properties_cmd="jf rt  curl -s -k -XGET \"/api/storage/$source_repo/$encoded_file_path?properties\" --server-id $source_artifactory"
+#                    echo $get_item_properties_cmd
                     prop_output=$(eval "$get_item_properties_cmd")
                     prop_exit_status=$?
                     # echo $prop_output
@@ -249,6 +262,8 @@ run_migrate_command() {
 
                         fi
                         # Execute the migration commands for a single file in the background
+                        echo "Executing: execute_artifact_migration \"$folder_position\" \"$source_repo\" \"$line\" \"$source_artifactory\" \"$target_repo\" \"$target_artifactory\" \"$escaped_modified_json\""
+
                         execute_artifact_migration "$folder_position" "$source_repo" "$line" "$source_artifactory" \
                         "$target_repo" "$target_artifactory" "$escaped_modified_json" &
 
@@ -298,6 +313,24 @@ run_migration_for_folder() {
 
 }
 
+
+# Function to URL-encode only spaces in a string
+urlencode_spaces() {
+    local encoded=""
+    local char
+    for (( i=0; i<${#1}; i++ )); do
+        char="${1:i:1}"
+        if [ "$char" == " " ]; then
+            encoded="$encoded$(printf '%%%02X' "'$char")"
+        else
+            encoded="$encoded$char"
+        fi
+    done
+    echo "$encoded"
+}
+
+
+
 migrateFolderRecursively(){
     # Enable debugging
     # set -x
@@ -321,10 +354,15 @@ migrateFolderRecursively(){
 
         # Find all the sub-folders of the $l_root_folder
         if [ "$l_root_folder" != "." ]; then
-            output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo/$l_root_folder?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
+            # If the "$l_root_folder" has a space in the folder name then urlencode it.
+            encoded_path=$(urlencode_spaces "$l_root_folder")
+            echo "Executing: jf rt curl -s -k -XGET \"/api/storage/$source_repo/$encoded_path?list&deep=1&depth=1&listFolders=1\" --server-id $source_artifactory" | tee -a "$all_commands_file"
+            output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo/$encoded_path?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
         else
+            echo "Executing: jf rt curl -s -k -XGET \"/api/storage/$source_repo?list&deep=1&depth=1&listFolders=1\" --server-id $source_artifactory" | tee -a "$all_commands_file"
             output=$(jf rt curl -s -k -XGET "/api/storage/$source_repo?list&deep=1&depth=1&listFolders=1" --server-id $source_artifactory)
         fi
+
 
 #        echo "In migrateFolderRecursively - 1 - b4 calling jq"
         # Parse the JSON output using jq and get the "uri" values for folders
