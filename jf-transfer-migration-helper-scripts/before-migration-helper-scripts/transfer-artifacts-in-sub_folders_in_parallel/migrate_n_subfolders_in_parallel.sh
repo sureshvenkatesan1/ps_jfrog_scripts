@@ -340,10 +340,10 @@ migrateFolderRecursively(){
     # Iterate until the stack is empty
     while [ ${#folder_stack[@]} -gt 0 ]; do
         # Print the contents of the folder_stack
-        echo "Current folder_stack contents:"
-        for folder in "${folder_stack[@]}"; do
-            echo "----->$folder"
-        done
+#        echo "Current folder_stack contents:"
+#        for folder in "${folder_stack[@]}"; do
+#            echo "----->$folder"
+#        done
 
         # Pop the top folder from the stack safely
         l_root_folder="${folder_stack[0]}"
