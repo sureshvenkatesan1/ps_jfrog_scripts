@@ -333,6 +333,37 @@ comm -23 <(sort all_local_repos_in_source.txt) <(sort all_local_repos_in_target.
 comm -23 <(sort all_remote_repos_in_source.txt) <(sort all_remote_repos_in_target.txt) > remote_repos_to_create.txt
 comm -23 <(sort all_virtual_repos_in_source.txt) <(sort all_virtual_repos_in_target.txt) > virtual_repos_to_create.txt
 ```
+
+The easiest option to create the missing repos  is to just use the "jf rt transfer-config-merge" command.
+
+You can use shell command to read all lines in a file and print them in a single line with a semi-colon separator
+```text
+semicolon_separated_list_of_repos=$(tr '\n' ';' < local_repos_to_create.txt)
+
+jf rt transfer-config-merge source-id target-id --include-repos "$semicolon_separated_list_of_repos" --include-projects ""
+```
+
+But this approach does not help if the source artifactory is a SAAS instance and the remote repo  that you want to create has a password as it will fail in below steps as the decrypt API works only when run on the same localhost as the source artifactory instance:
+
+```
+13:16:09 [🔵Info] ========== Transferring repositories ==========
+13:16:09 [🔵Info] Deactivating key encryption in Artifactory...
+13:16:10 [🚨Error] server response: 405
+{
+  "errors": [
+    {
+      "status": 405,
+      "message": "Cannot disable encryption for SaaS Artifactory"
+    }
+  ]
+}
+```
+
+
+Otherwise you can use scripts as mentioned  in next section
+
+---
+
 Create the missing repos using script similar to:
 ```text
 #! /bin/bash
@@ -376,16 +407,19 @@ foreach ($repo in $repos) {
 }
 ```
 
-Another option is to create the missing repos  just using the "jf rt transfer-config-merge" .
-
-You can use shell command to read all lines in a file and print them in a single line with a semi-colon separator
-```text
-semicolon_separated_list_of_repos=$(tr '\n' ';' < local_repos_to_create.txt)
-
-jf rt transfer-config-merge source-id target-id --include-repos "$semicolon_separated_list_of_repos" --include-projects ""
+But the above 3 approaches  will not work   when 
+creating the remote repo in the target artifactory server , if the remote repo in the source artifactory has a 
+password . This is because the exported repo config has an encrypted "JE" password . When importing such a repo 
+config in the target artifactory will fail as shown below:
 ```
-
-But the above 2 approaches does not help in creating the remote repos ( if the repo has a password).
+ jf rt curl  -X PUT api/repositories/sv-example-repo-remote -H "Content-Type: application/json" -T mill.json --server-id=mill1 -s
+{
+  "errors" : [ {
+    "status" : 400,
+    "message" : "javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.\n"
+  } ]
+}
+```
 So the alternative way to create repos ( especially the remote repos)  is [create-repos-during-migration.sh](create-repos-during-migration.sh) as explained in [create-repos-during-migration.md](create-repos-during-migration.md)
 
-Similarly create the remote and virtual repos in remote_repos_to_create.txt and virtual_repos_to_create.txt
+Similarly create the remote and virtual repos from the  `remote_repos_to_create.txt` and `virtual_repos_to_create.txt` you generated in  earlier steps.
