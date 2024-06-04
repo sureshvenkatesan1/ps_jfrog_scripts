@@ -206,13 +206,18 @@ def main():
     try:
         source_uris = {item['uri'][1:] for item in source_data['files'] if "_uploads/" not in item['uri'] and
                        "repository.catalog" not in item['uri']}
+        # Filter out URIs that start with ".jfrog" , ".npm" etc
+        source_uris = {uri for uri in source_uris if not uri.startswith(".")}
+
     except KeyError:
-        print("Key 'files' not found in source_data. Please check the structure of the JSON file.")
-        return
+            print("Key 'files' not found in source_data. Please check the structure of the JSON file.")
+            return
 
     try:
         target_uris = {item['uri'][1:] for item in target_data['files'] if "_uploads/" not in item['uri'] and
                        "repository.catalog" not in item['uri']}
+        # Filter out URIs that start with ".jfrog" , ".npm" etc
+        target_uris = {uri for uri in target_uris if not uri.startswith(".")}
     except KeyError:
         print("Key 'files' not found in target_data. Please check the structure of the JSON file.")
         target_uris = set()

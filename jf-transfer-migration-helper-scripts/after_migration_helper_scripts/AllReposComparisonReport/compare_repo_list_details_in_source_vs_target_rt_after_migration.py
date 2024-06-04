@@ -149,6 +149,7 @@ def generate_comparison_output(repo_details_of_interest, args, output_dir):
 
     repos_with_space_difference = []
     repos_with_both_differences = []
+    repos_with_negative_space_diff = []
 
 
 
@@ -237,6 +238,9 @@ def generate_comparison_output(repo_details_of_interest, args, output_dir):
                 if source_space_in_bytes > threshold_bytes:
                     big_source_repos.append(repo_key)
 
+        if space_difference < 0:
+            repos_with_negative_space_diff.append(repo_key)
+
 
 
         # source_used_space = source_details.get('usedSpace', 'N/A')
@@ -258,8 +262,9 @@ def generate_comparison_output(repo_details_of_interest, args, output_dir):
     repos_with_space_difference.sort()
     repos_with_both_differences.sort()
     big_source_repos.sort()
+    repos_with_negative_space_diff.sort()
 
-    return comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos
+    return comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, repos_with_negative_space_diff
 
 def print_alternative_transfer_method(output_dir,output_file,big_source_repos, source_server_id, target_server_id):
     if not big_source_repos:
@@ -310,7 +315,8 @@ def bucket_repositories(repos_to_bucket, args):
 
     return buckets
 
-def write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets):
+def write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference,
+                 repos_with_both_differences, big_source_repos, repos_with_negative_space_diff, args, buckets):
     output_file.write("Tabular Comparison:\n")
     for line in comparison_output_tabular:
         output_file.write(line + '\n')
@@ -384,14 +390,23 @@ def write_output(output_dir, output_file, comparison_output_tabular, repos_with_
 
             # Print the repodiff commands for repos_with_space_difference
     print("==================================================================")
+    output_file.write("\nRepos with 'usedSpaceInBytes' Difference < 0 ({} repos):\n".format(len(
+        repos_with_negative_space_diff)))
+    output_file.write(';'.join(repos_with_negative_space_diff))
     output_file.write(f"\n\n==================================================================")
-    output_file.write(f"\n\nHere are the repodiff commands\n")
+    print("==================================================================")
+    output_file.write(f"\n\n==================================================================")
+    output_file.write(f"\n\nHere are the repodiff commands for repos_with_space_difference\n")
     for repo in repos_with_space_difference:
         repodiff_command = generate_repodiff_command(args.source_server_id, args.target_server_id, repo)
         print(repodiff_command)
         output_file.write(f"{repodiff_command}\n")
 
-
+    output_file.write(f"\n\nHere are the repodiff commands for repos_with_negative_space_diff\n")
+    for repo in repos_with_negative_space_diff:
+        repodiff_command = generate_repodiff_command(args.source_server_id, args.target_server_id, repo)
+        print(repodiff_command)
+        output_file.write(f"{repodiff_command}\n")
 
 def subtract_lists(list1, list2):
     return [item for item in list1 if item not in list2]
@@ -444,13 +459,17 @@ def main():
     os.makedirs(os.path.join(output_dir, args.source_server_id) , exist_ok=True)
     os.makedirs(os.path.join(output_dir, args.target_server_id) , exist_ok=True)
 
-    comparison_output_tabular, repos_with_space_difference, repos_with_both_differences , big_source_repos = generate_comparison_output(repo_details_of_interest, args, output_dir)
+    (comparison_output_tabular, repos_with_space_difference, repos_with_both_differences , big_source_repos ,
+     repos_with_negative_space_diff) \
+        = generate_comparison_output(repo_details_of_interest, args, output_dir)
     print("\n\n==================================================================")
     print(f"{len(repos_with_space_difference)} repos_with_space_difference is ->  {repos_with_space_difference}")
     print("==================================================================")
     print(f"{len(repos_with_both_differences)} repos_with_both_differences is ->  {repos_with_both_differences}")
     print("==================================================================")
     print(f"{len(big_source_repos)} big_source_repos is ->  {big_source_repos}")
+    print("==================================================================")
+    print(f"{len(repos_with_negative_space_diff)} repos_with_negative_space_diff is ->  {repos_with_negative_space_diff}")
     print("==================================================================\n\n")
     # ... (rest of the code for bucketing and writing output)
     if args.print_alternative_transfer:
@@ -477,7 +496,9 @@ def main():
 
         # Write the output
         with open(comparison_report_file, 'w') as output_file:
-            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, small_repos_with_both_differences, big_source_repos, args, buckets)
+            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference,
+                         small_repos_with_both_differences, big_source_repos, repos_with_negative_space_diff, args,
+                         buckets)
 
     else:
         # Exclude the last n repos based on the --total_repos_customer_will_migrate argument , if there are more repos
@@ -495,7 +516,8 @@ def main():
 
         # Write the output
         with open(comparison_report_file, 'w') as output_file:
-            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets)
+            write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference,
+                         repos_with_both_differences, big_source_repos, repos_with_negative_space_diff, args, buckets)
 
 
     print("==================================================================\n\n")

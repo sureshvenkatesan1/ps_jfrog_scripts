@@ -39,6 +39,7 @@ import subprocess
 import os
 import json
 import tempfile
+from urllib.parse import quote
 
 
 
@@ -75,21 +76,23 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
 
         # Construct the curl command with the JSON data string
         # curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{line}?atomicProperties=1" --server-id {target_artifactory} -d \'{json_data_str}\''
-        curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{line}?atomicProperties=1" --server-id {target_artifactory} -d @{temp_file.name}'
+        # URL encode the line
+        encoded_line = quote(line)
+        curl_command = f'jf rt curl -k -sL -XPATCH -H "Content-Type: application/json" "/api/metadata/{target_repo}/{encoded_line}?atomicProperties=1" --server-id {target_artifactory} -d @{temp_file.name}'
         print(f"curl_command: {curl_command}")
         # Add the curl command to the list of commands
         commands = [
-            f"jf rt dl {source_repo}/{line} . --threads=8 --server-id {source_artifactory}",
-            f"jf rt u {line} {target_repo}/{line} --threads=8 --server-id {target_artifactory}",
+            f"jf rt dl {source_repo}/\"{line}\" . --threads=8 --server-id {source_artifactory}",
+            f"jf rt u \"{line}\" {target_repo}/\"{line}\" --threads=8 --server-id {target_artifactory}",
             curl_command,
-            f"rm -rf {line}"
+            f"rm -rf \"{line}\""
         ]
     else:
         print(f"Not uploading properties: {escaped_modified_json}")
         commands = [
-            f"jf rt dl {source_repo}/{line} . --threads=8 --server-id {source_artifactory}",
-            f"jf rt u {line} {target_repo}/{line} --threads=8 --server-id {target_artifactory}",
-            f"rm -rf {line}"
+            f"jf rt dl {source_repo}/\"{line}\" . --threads=8 --server-id {source_artifactory}",
+            f"jf rt u \"{line}\" {target_repo}/\"{line}\" --threads=8 --server-id {target_artifactory}",
+            f"rm -rf \"{line}\""
         ]
 
     try:
@@ -100,12 +103,12 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
             if result.returncode != 0:
                 any_command_failed = True
                 with open(os.path.join(current_dir, "failed_commands_file.txt"), "a") as f:
-                    f.write(f"Command failed: {command} , for: {source_repo}/{line}\n")
+                    f.write(f"Command failed: {command} , for: {source_repo}/\"{line}\"\n")
 
         # If all commands succeeded, log the success message once for each artifact
         if not any_command_failed:
             with open(os.path.join(current_dir, "successful_commands_file.txt"), "a") as f:
-                f.write(f"All commands succeeded for: {source_repo}/{line}\n")
+                f.write(f"All commands succeeded for: {source_repo}/\"{line}\"\n")
     finally:
         if escaped_modified_json and isinstance(escaped_modified_json, dict) and 'props' in escaped_modified_json and escaped_modified_json['props'] and len(escaped_modified_json['props']) >= 1:
             # Clean up the temporary JSON file
@@ -125,10 +128,12 @@ def get_escaped_modified_json(source_repo, line, source_artifactory):
     Returns:
     dict or None: Dictionary containing escaped modified JSON data if found, otherwise None.
     """
+    # URL encode the line
+    encoded_line = quote(line)
     # Construct the command to run
     command = [
         "jf", "rt", "curl", "-s", "-k", "-XGET",
-        f"/api/storage/{source_repo}/{line}?properties",
+        f"/api/storage/{source_repo}/{encoded_line}?properties",
         "--server-id", source_artifactory
     ]
 
