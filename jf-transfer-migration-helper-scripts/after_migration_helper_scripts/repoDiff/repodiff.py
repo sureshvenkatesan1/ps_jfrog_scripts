@@ -142,19 +142,19 @@ def write_artifact_stats_sort_desc(artifactory, repo, unique_uris, output_file):
 #  Get the download stats for every artifact uri in the unique_uris list from the mdTimestamps.artifactory.stats in the
 #  source_data json itself.
 # If the artifact was never downloaded use a default timestamp of "Jan 1 , 1900"  UTC .
+
 def write_artifact_stats_from_source_data(source_data, unique_uris, output_file):
     artifact_info = []
 
+    # Convert source_data['files'] to a dictionary for quick lookup
+    source_files_dict = {item['uri'][1:]: item for item in source_data['files']}
+
     for uri in unique_uris:
-        # Find the corresponding entry in source_data by matching the "uri"
-        matching_entry = next((item for item in source_data['files'] if item['uri'] == uri), None)
+        # Find the corresponding entry in source_files_dict by matching the "uri"
+        matching_entry = source_files_dict.get(uri, None)
 
         if matching_entry:
             # Extract the "artifactory.stats" timestamp if available, otherwise use a default timestamp of "Jan 1 , 1900"
-            # timestamp_utc = response_data["mdTimestamps"].get("artifactory.stats") or response_data["lastModified"]
-
-            # retrieve the timestamp from nested dictionaries within matching_entry. It starts by looking for "mdTimestamps" and
-            # then within that for "artifactory.stats". If both are missing, it finally defaults to "1900-01-01T00:00:00.000Z" as the timestamp
             timestamp_utc = matching_entry.get("mdTimestamps", {}).get("artifactory.stats", "1900-01-01T00:00:00.000Z") or "1900-01-01T00:00:00.000Z"
 
             # Append to the list
@@ -175,23 +175,25 @@ def write_artifact_stats_from_source_data(source_data, unique_uris, output_file)
             out_file.write(f"{timestamp_utc}\t{uri}\n")
 
 def extract_file_info(files):
-    return {file['uri']: file['size'] for file in files}
+    return {file['uri'][1:]: (file['size'], file['sha1']) for file in files if 'sha1' in file}
 
 def compare_logs(source_files, target_files):
     delta_paths = []
 
-    for uri, size in source_files.items():
+    for uri, (size, sha1) in source_files.items():
         if uri not in target_files:
-            delta_paths.append((uri, size, "Not in target"))
-        elif size != target_files[uri]:
-            delta_paths.append((uri, size, f"Size mismatch: source={size}, target={target_files[uri]}"))
+            delta_paths.append((uri, f"source=({size} , {sha1}) Not in target"))
+        elif sha1 != target_files[uri][1]:
+            delta_paths.append((uri,  f"SHA1 mismatch: source=({size} , {sha1}), target={target_files[uri]}"))
 
     return delta_paths
 
+
+
 def write_all_filepaths_delta(delta_paths, log_path):
     with open(log_path, 'w') as log_file:
-        for uri, size, reason in delta_paths:
-            log_file.write(f"{uri} {size} ({reason})\n")
+        for uri,  reason in delta_paths:
+            log_file.write(f"{uri}  ({reason})\n")
 
 def main():
     # Parse command-line arguments
@@ -223,9 +225,9 @@ def main():
         # Create the initial dictionary with the desired URIs and their sizes.
         # Next, filter out URIs that start with ".jfrog" , ".npm" etc.
         source_uris = {
-            item['uri'][1:]: item['size']
+            item['uri'][1:]: [item['size'], item['sha1']]
             for item in source_data['files']
-            if "_uploads/" not in item['uri'] and
+            if item['size'] > 0 and "_uploads/" not in item['uri'] and
                "repository.catalog" not in item['uri'] and
                not item['uri'][1:].startswith(".")
         }
@@ -237,9 +239,9 @@ def main():
         # Create the initial dictionary with the desired URIs and their sizes.
         # Next, filter out URIs that start with ".jfrog" , ".npm" etc.
         target_uris = {
-            item['uri'][1:]: item['size']
+            item['uri'][1:]: [item['size'], item['sha1']]
             for item in target_data['files']
-            if "_uploads/" not in item['uri'] and
+            if item['size'] > 0 and "_uploads/" not in item['uri'] and
                "repository.catalog" not in item['uri'] and
                not item['uri'][1:].startswith(".")
         }
@@ -252,15 +254,15 @@ def main():
     if not target_uris:
         unique_uris = sorted(source_uris.keys())
     else:
-        # Find the unique URIs that are either not in target_uris or have different sizes.
+        # Find the unique URIs that are either not in target_uris or have different 'sha1'.
         unique_uris = sorted(
             uri for uri, size in source_uris.items()
-            if uri not in target_uris or source_uris[uri] != target_uris[uri]
+            if uri not in target_uris or source_uris[uri][1] != target_uris[uri][1]
         )
 
     # Calculate the total size of the unique URIs.
     total_size = sum(
-        source_uris[uri] for uri in unique_uris
+        source_uris[uri][0] for uri in unique_uris
     )
 
     # Write the unique URIs to a file in the output folder

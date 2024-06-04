@@ -1,23 +1,37 @@
 # Artifactory Repository Data Comparison
 
-The [repodiff.py](repodiff.py) is designed to compare two repositories in different JFrog Artifactory instances and identifies artifacts present in the source repository but missing in the target repository. It fetches data from both repositories, compares the URIs (finds the diff only based on repo path and not checksum) , and generates reports of missing artifacts and statistics.
+The [repodiff.py](repodiff.py) is designed to compare artifacts between source and target repositories in  different 
+JFrog Artifactory instances and identifies artifacts present in the source repository but missing in the target repository. It fetches the list of 
+artifacts from both source and target repositories , compares the URIs (finds the diff  based on repo path and the 
+`sha1` checksum) , and generates reports of missing artifacts and statistics.
 
 It also provides additional features such as extracting and sorting artifact statistics and filtering unwanted files.
+This tool is essential for ensuring repository consistency and integrity across different Artifactory instances 
+especially after a SAAS migration.
 
 It has same logic as the original script in 
 https://github.com/jfrog/artifactory-scripts/blob/master/replicationDiff/replicationDiff.sh
 and uses the jfrog cli to connect to Artifactory.
+
+## Features
+
+- Fetches and compares artifacts between source and target repositories.
+- Generates reports on unique URIs present in the source but missing in the target.
+- Provides file statistics sorted by extension.
+- Supports filtering out unwanted metadata files.
+- Logs detailed information about artifact download statistics.
 
 ## Prerequisites
 
 Before running the script, ensure you have the following prerequisites:
 
 - Python 3.x
-- [Artifactory CLI (JFrog CLI)](https://www.jfrog.com/confluence/display/JFROG/JFrog+CLI) installed and configured with server IDs.
+- [Artifactory CLI (JFrog CLI)](https://www.jfrog.com/confluence/display/JFROG/JFrog+CLI) installed and configured 
+  with server IDs to access source and target JFrog Artifactory instances
 
 ## Usage
 
-1. Clone this repository or download the script `repodiff.py` to your local machine.
+1. Download the script  [repodiff.py](repodiff.py)  to your local machine.
 
 2. Open a terminal and navigate to the directory where the script is located.
 
@@ -57,6 +71,7 @@ The script generates the following output files:
 
 - **filepaths_uri_lastDownloaded_desc.txt**: Contains a list of unique URIs for missing artifacts. These URIs are accompanied by their download statistics ( from "artifactory.stats" ) , 
   sorted in descending order of lastDownloaded timestamp in UTC. If an artifact has never been downloaded,  a default timestamp of **"Jan 1, 1900, 00:00:00 UTC"** is used.
+- **all_delta_paths_with_differnt_sizes.txt**: List of paths with size , sha1 mismatches or missing in the target.
 
 ## Alternative scripts/plugin:
 - https://git.jfrog.info/projects/PROFS/repos/ps_jfrog_scripts/browse/compare_repos
@@ -111,7 +126,7 @@ already contains the last download statistics under "artifactory.stats." Therefo
 }
 ```
 ---
-Behind the scenes:
+### Behind the scenes:
 
 I initially experimented with below scripts  which were improvised from 
 [replicationDiff.sh](https://github.com/jfrog/artifactory-scripts/blob/master/replicationDiff/replicationDiff.sh) 

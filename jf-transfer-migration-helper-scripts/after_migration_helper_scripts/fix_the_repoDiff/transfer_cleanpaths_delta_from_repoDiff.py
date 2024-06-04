@@ -66,7 +66,7 @@ def execute_artifact_migration(workdir, source_repo, line, source_artifactory, t
     os.chdir(workdir)
     print(f"In execute_artifact_migration escaped_modified_json is: {escaped_modified_json}")
 
-    # Assuming line is the variable that may contain a $ character
+    # Assuming line is the variable that may contain a $ character . FOr example someone had a build name ${BUILD_BRANCH}/214-1548715007913.json
     escaped_line = line.replace('$', '\\$')
 
     # Check if the length of the trimmed $escaped_modified_json is greater than 1 , i.e artifact has a property
