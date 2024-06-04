@@ -4,8 +4,21 @@ import json
 from tabulate import tabulate
 from urllib.parse import unquote
 
+# Function to get Artifactory version
+def get_artifactory_version(jpd_url, jpd_token):
+    headers = {"Authorization": f"Bearer {jpd_token}"}
+    version_url = f"{jpd_url}/artifactory/api/system/version"
+    response = requests.get(version_url, headers=headers)
+    if response.ok:
+        version_data = response.json()
+        version_str = version_data['version']
+        return tuple(map(int, version_str.split('.')))
+    else:
+        raise Exception(f"Failed to fetch Artifactory version from {version_url}. Status code: {response.status_code}")
+
 # Function to collect data from a JPD
-def collect_data(jpd_url, jpd_token, jpd_version):
+def collect_data(jpd_url, jpd_token, jpd_label):
+    jpd_version = get_artifactory_version(jpd_url, jpd_token)
     headers = {"Authorization": f"Bearer {jpd_token}"}
 
     # Determine permissions API endpoint based on JPD version
@@ -14,7 +27,7 @@ def collect_data(jpd_url, jpd_token, jpd_version):
     else:
         permissions_endpoint = "/artifactory/api/v2/security/permissions"
 
-    print(f"Using permissions API '{permissions_endpoint}' for JPD at '{jpd_url}' with version {'.'.join(map(str, jpd_version))}")
+    print(f"Using permissions API '{permissions_endpoint}' for {jpd_label} at '{jpd_url}' with version {'.'.join(map(str, jpd_version))}")
 
     # Function to get entity names
     def get_entity_names(entity_type, entity_url):
@@ -107,6 +120,30 @@ def collect_data(jpd_url, jpd_token, jpd_version):
 
         return entity_names, len(entity_names), json_data
 
+    def get_project_builds(project_key):
+        project_builds_url = f"{jpd_url}/artifactory/api/build?project={project_key}"
+        response = requests.get(project_builds_url, headers=headers)
+        if not response.ok:
+            print(f"Failed to fetch data for Builds in Project '{project_key}' from {project_builds_url}. Status code: {response.status_code}")
+            return None, None, None
+        try:
+            project_builds_data = response.json()
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON for Builds in Project '{project_key}' from {project_builds_url}: {e}")
+            return None, None, None
+
+        project_build_names = []
+        builds_json_data = {}
+
+        for build in project_builds_data.get("builds", []):
+            entity_name = unquote(build["uri"][1:])
+            project_build_names.append(entity_name)
+            builds_json_data[entity_name] = build
+
+        count_of_project_builds = len(project_build_names)
+
+        return project_build_names, count_of_project_builds, builds_json_data
+
     data = {}
 
     # Define entity types with URLs
@@ -133,8 +170,9 @@ def collect_data(jpd_url, jpd_token, jpd_version):
         if entity_type == "Projects":
             if entity_names is not None:
                 for project_key in entity_names:
-                    # You can optionally handle builds per project here if needed
-                    pass
+                    project_build_names, count_of_project_builds, builds_json_data = get_project_builds(project_key)
+                    if project_build_names:
+                        data[f"Builds in Project '{project_key}'"] = (project_build_names, count_of_project_builds, builds_json_data)
         else:
             if entity_names is not None:
                 data[entity_type] = (entity_names, count, json_data)
@@ -218,18 +256,12 @@ if __name__ == "__main__":
     parser.add_argument("jpd_url2", help="URL of the second JPD")
     parser.add_argument("jpd_token2", help="Token for accessing the second JPD")
     parser.add_argument("output_file", help="File to write the differences to")
-    parser.add_argument("jpd_version1", help="Version of the first JPD (format: x.y.z)", type=str)
-    parser.add_argument("jpd_version2", help="Version of the second JPD (format: x.y.z)", type=str)
     args = parser.parse_args()
 
     try:
-        # Convert version strings to tuples of integers
-        jpd_version1 = tuple(map(int, args.jpd_version1.split('.')))
-        jpd_version2 = tuple(map(int, args.jpd_version2.split('.')))
-
         # Collect data from both JPDs
-        data1 = collect_data(args.jpd_url1, args.jpd_token1, jpd_version1)
-        data2 = collect_data(args.jpd_url2, args.jpd_token2, jpd_version2)
+        data1 = collect_data(args.jpd_url1, args.jpd_token1, "JPD1")
+        data2 = collect_data(args.jpd_url2, args.jpd_token2, "JPD2")
 
         # Compare the data
         differences = compare_data(data1, data2, args.jpd_url1, args.jpd_url2)

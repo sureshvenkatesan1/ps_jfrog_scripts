@@ -1,95 +1,79 @@
-##JFrog Platform Data Comparison Script
+# JPD Configuration Comparison Script
 
-### Overview
-This script compares data between two JFrog Platform Deployments (JPDs). It collects various entities such as repositories, users, groups, permissions, and more from both JPDs, compares them, and generates a report highlighting differences. The results are displayed in a tabular format and saved to a specified output file.
+## Overview
 
-### Features
-- **Data Collection**: Collects data for repositories, users, groups, permissions, tokens, projects, builds, property sets, Xray entities, and repository layouts.
-- **Comparison**: Compares collected data, identifies unique and common entities, and highlights differing properties between the two JPDs.
-- **Output**: Provides a human-readable comparison table and writes the results to an output file.
+This script compares the configurations of two JFrog Platform Deployments (JPDs) by fetching data from various endpoints and comparing the results. The script dynamically determines the appropriate permissions API endpoint based on the Artifactory version of each JPD.
 
-### Prerequisites
+## Requirements
+
 - Python 3.x
-- Required Python packages: `argparse`, `requests`, `json`, `tabulate`, `urllib.parse`
+- `requests` library
+- `tabulate` library
 
-### Usage
+## Installation
 
-```bash
-python jpd_compare.py <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2> <output_file> <jpd_version1> <jpd_version2>
+1. **Clone the repository** or **download the script**:
+    ```sh
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
+
+2. **Install required Python packages**:
+    ```sh
+    pip install requests tabulate
+    ```
+
+## Usage
+
+### Command-Line Arguments
+
+- `jpd_url1`: URL of the first JPD.
+- `jpd_token1`: Token for accessing the first JPD.
+- `jpd_url2`: URL of the second JPD.
+- `jpd_token2`: Token for accessing the second JPD.
+- `output_file`: File to write the differences to.
+
+### Running the Script
+
+Execute the script with the required arguments:
+
+```sh
+python3 compare_2_jpd_configs.py <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2> <output_file>
 ```
-
-### Parameters
-- `<jpd_url1>`: URL of the first JPD.
-- `<jpd_token1>`: Authentication token for accessing the first JPD.
-- `<jpd_url2>`: URL of the second JPD.
-- `<jpd_token2>`: Authentication token for accessing the second JPD.
-- `<output_file>`: Path to the file where the differences will be saved.
-- `<jpd_version1>`: Version of the first JPD in `x.y.z` format.
-- `<jpd_version2>`: Version of the second JPD in `x.y.z` format.
-
-### Script Details
-
-1. **Data Collection (`collect_data`)**:
-   - Collects data from various endpoints in the JPDs based on the version provided.
-   - Handles different endpoints for permissions depending on the JPD version.
-   - Collects entity names and associated JSON data for each entity type.
-
-2. **Handling Permissions Endpoint Dynamically**:
-   - **Different Endpoints**:
-     - For JPD versions below 7.72.0, the permissions are accessed via the Artifactory security API: `"/artifactory/api/v2/security/permissions"`.
-     - For JPD versions 7.72.0 and above, the permissions are accessed via the Access API: `"/access/api/v2/permissions"`.
-   - **Dynamic Endpoint Selection**:
-     - The script includes logic to select the appropriate permissions API endpoint based on the JPD version.
-     - It determines which endpoint to use by comparing the provided JPD version against the version threshold (7.72.0).
-
-   **Code Example**:
-   ```python
-   # Determine permissions API endpoint based on JPD version
-   if jpd_version >= (7, 72, 0):
-       permissions_endpoint = "/access/api/v2/permissions"
-   else:
-       permissions_endpoint = "/artifactory/api/v2/security/permissions"
-   ```
-
-   **Usage in `collect_data`**:
-   When the script calls `collect_data`, it uses the determined `permissions_endpoint` to fetch permissions data:
-   ```python
-   entity_types = [
-       # Other entities
-       ("Permissions", permissions_endpoint),  # Use the dynamically determined endpoint
-       # More entities
-   ]
-   ```
-
-3. **Comparison (`compare_data`)**:
-   - Compares collected data between the two JPDs.
-   - Identifies unique entities in each JPD.
-   - Highlights properties that differ between common entities.
-
-4. **Display and Output (`display_differences`)**:
-   - Formats the differences into a table using `tabulate`.
-   - Prints the table to the console.
-   - Writes the formatted table to the specified output file.
 
 ### Example
 
-To compare data between two JPDs:
-
-```bash
-python jpd_compare.py http://jpd1.example.com <token1> http://jpd2.example.com <token2> differences.txt 7.71.0 7.72.0
+```sh
+python3 compare_2_jpd_configs.py https://serverid1.jfrog.io ABC123 https://serverid2.jfrog.io XYZ789 differences_output.txt
 ```
 
-### Error Handling
-- The script provides meaningful error messages if data collection fails or if JSON parsing encounters issues.
-- HTTP response content is printed for debugging if an API request fails.
+In this example:
+- `https://serverid1.jfrog.io` is the URL of the first JPD.
+- `ABC123` is the token for accessing the first JPD.
+- `https://serverid2.jfrog.io` is the URL of the second JPD.
+- `XYZ789` is the token for accessing the second JPD.
+- `differences_output.txt` is the file where the differences will be written.
 
-### Notes
-- Ensure the tokens provided have the necessary permissions to access the respective JPD endpoints.
-- This script assumes that the JPD URLs are accessible and the endpoints are correct as per the JPD version provided.
+## How It Works
 
-### License
-This script is provided as-is without warranty. Use at your own risk.
+1. **Fetch Artifactory Version**: The script uses the API endpoint `/artifactory/api/system/version` to fetch the Artifactory version for each JPD.
+2. **Determine Permissions Endpoint**: Based on the Artifactory version, the script determines the appropriate permissions API endpoint:
+   - For versions `>= 7.72.0`: `/access/api/v2/permissions`
+   - For versions `< 7.72.0`: `/artifactory/api/v2/security/permissions`
+3. **Collect Data**: The script collects data from various endpoints for both JPDs.
+4. **Compare Data**: The script compares the collected data and identifies differences.
+5. **Output Differences**: The differences are displayed in tabular format and written to the specified output file.
 
-For any questions or issues, please refer to the [JFrog Documentation](https://www.jfrog.com/confluence/) or contact support.
+## Log Output
 
+The script logs the usage of the permissions API for each JPD, making it clear which API endpoint is being used for which JPD, along with the version:
 
+```plaintext
+Using permissions API '/access/api/v2/permissions' for JPD1 at 'https://serverid1.jfrog.io' with version 7.88.0
+Using permissions API '/access/api/v2/permissions' for JPD2 at 'https://serverid2.jfrog.io' with version 7.88.0
+```
+
+## Troubleshooting
+
+- Ensure that the provided URLs and tokens are correct and have the necessary permissions to access the endpoints.
+- If you encounter any errors, refer to the error messages printed by the script for troubleshooting. The script includes debug information to help identify issues with API calls and data parsing.

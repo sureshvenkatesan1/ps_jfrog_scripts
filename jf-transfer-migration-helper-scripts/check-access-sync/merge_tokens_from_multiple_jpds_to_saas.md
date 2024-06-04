@@ -7,8 +7,7 @@ Instead, we utilize the internal **/access/api/v1/import/entities/cloud** API wh
 This failure occurs because though `access federation` was syncing new tokens immediately, but while the access backlog is 
 significant, it causes synchronization failures with **java.util.concurrent.TimeoutException** ( for older tokens). 
 
-More details on the TimeoutException in  https://git.jfrog.
-info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md.
+More details on the TimeoutException in  https://git.jfrog.info/projects/PROFS/repos/usingjfrogcli/browse/Access/test_Access_federation.md.
 
 
 Here are the steps:
