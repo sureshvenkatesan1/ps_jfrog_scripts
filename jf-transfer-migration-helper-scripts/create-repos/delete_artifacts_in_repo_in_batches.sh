@@ -24,22 +24,23 @@
 #!/bin/bash
 
 # Check if required parameters are provided
-if [ $# -ne 3 ]; then
-  echo "Usage: $0 <repository-name> <limit-value> <server-id>"
+if [ $# -lt 3 ] || [ $# -gt 4 ]; then
+  echo "Usage: $0 <repository-name> <limit-value> <server-id> [threads]"
   exit 1
 fi
 
 repo_name="$1"
 limit_value="$2"
 server_id="$3"
+threads="${4:-8}" # Default to 8 if not specified
+
 
 while true; do
-  output=$(jf rt del "$repo_name/" --limit="$limit_value" --quiet --server-id="$server_id")
+  output=$(jf rt del "$repo_name/" --threads="$threads" --limit="$limit_value" --quiet --server-id="$server_id")
 
   # Check if the command errored out
   if [ $? -ne 0 ]; then
-    echo "Command errored out."
-    break
+    echo "Command errored out. Continuing to next batch..."
   fi
 
   # Parse the JSON output using jq

@@ -1,0 +1,75 @@
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/aa-debian-local/cleanpaths.txt \
+source-server aa-debian-local target-server aa-debian-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/adapt-mvn-local/cleanpaths.txt \
+source-server adapt-mvn-local target-server adapt-mvn-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/artifactory-build-info/cleanpaths.txt \
+source-server artifactory-build-info target-server artifactory-build-info
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/b-aa-debian-local/cleanpaths.txt \
+source-server b-aa-debian-local target-server b-aa-debian-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/dba-debian-local/cleanpaths.txt \
+source-server dba-debian-local target-server dba-debian-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/debian-beta/cleanpaths.txt \
+source-server debian-beta target-server debian-beta
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/debian-dev/cleanpaths.txt \
+source-server debian-dev target-server debian-dev
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/debian-production/cleanpaths.txt \
+source-server debian-production target-server debian-production
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/devops-debian-local/cleanpaths.txt \
+source-server devops-debian-local target-server devops-debian-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/dvrcloud-fr/cleanpaths.txt \
+source-server dvrcloud-fr target-server dvrcloud-fr
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/dvrcloudnew/cleanpaths.txt \
+source-server dvrcloudnew target-server dvrcloudnew
+====
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/encoder-local/cleanpaths.txt \
+source-server encoder-local target-server encoder-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/poc-debian-gpg-key1/cleanpaths.txt \
+source-server poc-debian-gpg-key1 target-server poc-debian-gpg-key1
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/qa-debian-local/cleanpaths.txt \
+source-server qa-debian-local target-server qa-debian-local
+
+
+python3 /home/sureshv/comparison_report/transfer_cleanpaths_delta_from_repoDiff.py \
+/home/sureshv/comparison_report/output/yum-shared/cleanpaths.txt \
+source-server yum-shared target-server yum-shared
+
+
