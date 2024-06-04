@@ -343,7 +343,10 @@ semicolon_separated_list_of_repos=$(tr '\n' ';' < local_repos_to_create.txt)
 jf rt transfer-config-merge source-id target-id --include-repos "$semicolon_separated_list_of_repos" --include-projects ""
 ```
 
-But this approach does not help if the source artifactory is a SAAS instance and the remote repo  that you want to create has a password as it will fail in below steps as the decrypt API works only when run on the same localhost as the source artifactory instance:
+But this approach does not help if the source artifactory is a SAAS instance and the remote repo  that you want to 
+create has a password as it will fail in below steps as the decrypt API works only when ssh and run on the same node or pod  as the source artifactory instance.
+If the remote repo does not have a password it can be run from and machine where the jfrog cli is configured to 
+connect to both the source and target artifactory instances:
 
 ```
 13:16:09 [🔵Info] ========== Transferring repositories ==========
