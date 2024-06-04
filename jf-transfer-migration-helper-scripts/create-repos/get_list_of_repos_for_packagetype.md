@@ -1,4 +1,4 @@
-Here's a `README.md` for your `get_list_of_repos_for_packagetype.sh` script:
+
 # get_list_of_repos_for_packagetype.sh
 
 This [get_list_of_repos_for_packagetype.sh](get_list_of_repos_for_packagetype.sh) script retrieves a list of 
