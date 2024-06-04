@@ -2,6 +2,18 @@
 
 This Python script is designed to compare repository details between source and target Artifactory Instances and generate a comprehensive comparison report. It also assists in generating transfer commands for migrating repositories from a source Artifactory to a target Artifactory.
 
+If  any repos in the source Artifactory have files that have not been transferred to the corresponding  target 
+Artifactory repos  the report also generates the necessary [repodiff.py](../repoDiff/repodiff.py) commands  that 
+can be run to get the delta in the `“output/<source-repo>/cleanpaths.txt"` as explained in the [readme.md](../repoDiff/readme.md)
+
+**cleanpaths.txt**: Contains the URIs of artifacts present in the source repository but missing in the target repository. It also provides statistics on the total size and file extensions.
+
+Next Transfer this delta , based on  file list  in the  cleanpaths.txt ( that is in source repo and has not been 
+transferred to the target repo) using [transfer_cleanpaths_delta_from_repoDiff.py](../fix_the_repoDiff/transfer_cleanpaths_delta_from_repoDiff.py)
+
+Please review the [readme.md](../fix_the_repoDiff/readme.md) of  this script on the usage. It reads the  cleanpaths.txt 
+and transfers only the missing files to the target repository in the SAAS instance.
+
 ## Prerequisites
 
 Before using this script, make sure you have the following prerequisites installed:

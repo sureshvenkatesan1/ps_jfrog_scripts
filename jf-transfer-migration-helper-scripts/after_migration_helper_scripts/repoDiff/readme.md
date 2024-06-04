@@ -42,7 +42,8 @@ The repodiff.py will perform the following actions:
 - Optionally, it can fetch data from a specific path within the repository if `--path-in-repo` parameter is provided.
 - Identify artifacts present in the source repository but missing in the target repository.
 - Calculate the total size of missing artifacts.
-- Write various output files with the results, including lists of unique URIs and statistics in the `test/output`  directory.
+- Write various output files with the results, including lists of unique URIs and statistics in the 
+  `output/<source-repo>`    directory.
 
 ## Output
 

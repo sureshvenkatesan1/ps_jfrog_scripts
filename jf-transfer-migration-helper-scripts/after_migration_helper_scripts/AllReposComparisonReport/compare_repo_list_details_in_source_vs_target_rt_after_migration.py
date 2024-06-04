@@ -76,13 +76,14 @@ def convert_used_space_to_bytes(used_space_str):
     else:
         return 0
 
-    # Fetch the "*_uploads" and ".jfrog" details  from a "Docker" repo
+    # Fetch the "*_uploads" and ".jfrog/repository.catalog" or "repository.catalog" details  from a "Docker" repo
 
 def get_docker_repo_all_uploads_files_count_and_total_size(repo_key, artifactory_server_id , output_dir):
     # Define the AQL query as a string
     aql_query = f'''items.find(
         {{ "repo": "{repo_key}",
              "$or": [
+                {{"name": {{"$match": "repository.catalog"}}}},
                 {{"path": {{"$match": ".jfrog"}}}},
                 {{"path": {{"$match": "*_uploads"}}}}
             ]
@@ -322,7 +323,7 @@ def write_output(output_dir, output_file, comparison_output_tabular, repos_with_
     if args.print_alternative_transfer:
         print_alternative_transfer_method(output_dir, output_file, big_source_repos, args.source_server_id, args.target_server_id)
 
-    # Now print the commands for the small / all repos if ot using alternate commands to transfer
+    # Now print the commands for the small / all repos if not using alternate commands to transfer
     if not buckets:
         print("Warning: There are no small repos for JFrog PS to migrate.")
         output_file.write(f"\n\nWarning: There are no small repos for JFrog PS to migrate.")
@@ -348,7 +349,8 @@ def write_output(output_dir, output_file, comparison_output_tabular, repos_with_
         if ((args.total_repos_customer_will_migrate > 0) and ( total_repos_PS_will_migrate > 0 ) ):
             # There are more repos  we can ask customer to migrate.
             # The remaininng PS can migrate
-            output_file.write(f"\n\n\nMigrate below { total_repos_PS_will_migrate } repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0:\n")
+            output_file.write("\n\n==================================================================")
+            output_file.write(f"\n\nMigrate below { total_repos_PS_will_migrate } repos with Both 'usedSpaceInBytes' and 'filesCount Differences' > 0:\n")
             print("==================================================================")
             print(f"{total_repos_PS_will_migrate} repos PS will migrate is ->  {repos_with_both_differences[:total_repos_PS_will_migrate]}")
             print("==================================================================")
@@ -380,6 +382,16 @@ def write_output(output_dir, output_file, comparison_output_tabular, repos_with_
                 output_file.write(';'.join(bucket))
                 output_file.write("\"' &")
 
+            # Print the repodiff commands for repos_with_space_difference
+    print("==================================================================")
+    output_file.write(f"\n\n==================================================================")
+    output_file.write(f"\n\nHere are the repodiff commands\n")
+    for repo in repos_with_space_difference:
+        repodiff_command = generate_repodiff_command(args.source_server_id, args.target_server_id, repo)
+        print(repodiff_command)
+        output_file.write(f"{repodiff_command}\n")
+
+
 
 def subtract_lists(list1, list2):
     return [item for item in list1 if item not in list2]
@@ -408,6 +420,10 @@ def generate_screen_commands(output_dir, big_source_repos, source_server_id, tar
         screen_commands.append(screen_command)
 
     return screen_commands
+
+def generate_repodiff_command(source_artifactory, target_artifactory, repo):
+    return f"python3 repodiff.py --source-artifactory {source_artifactory} --target-artifactory {target_artifactory} " \
+           f"--source-repo {repo} --target-repo {repo}"
 
 def main():
     args = parse_args()
@@ -481,6 +497,8 @@ def main():
         with open(comparison_report_file, 'w') as output_file:
             write_output(output_dir, output_file, comparison_output_tabular, repos_with_space_difference, repos_with_both_differences, big_source_repos, args, buckets)
 
+
+    print("==================================================================\n\n")
     print(f"Comparison results written to {comparison_report_file}")
 
 if __name__ == "__main__":

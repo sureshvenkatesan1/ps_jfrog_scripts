@@ -185,7 +185,7 @@ def main():
     args = parser.parse_args()
 
     # Create the output directory if it doesn't exist
-    output_dir = "test/output"
+    output_dir = f"output/{args.source_repo}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Fetch data from repositories
