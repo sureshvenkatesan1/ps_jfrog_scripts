@@ -17,11 +17,8 @@ def collect_data(jpd_url, jpd_token):
     def get_entity_names(entity_type, entity_url):
         response = requests.get(entity_url, headers=headers)
         if not response.ok:
-            try:
-                error_message = response.json()["errors"][0]["message"]
-                print(f"Failed to fetch data for {entity_type} from {entity_url}. Error message: {error_message}")
-            except (json.JSONDecodeError, KeyError, IndexError):
-                print(f"Failed to fetch data for {entity_type} from {entity_url}. Status code: {response.status_code}")
+            print(f"Failed to fetch data for {entity_type} from {entity_url}. Status code: {response.status_code}")
+            print("Response content:", response.text)  # Print response content for debugging
             return None, None, None
         # entity_data = response.text
         # print(f"Response for {entity_type} from {entity_url}:\n{entity_data}")
@@ -29,6 +26,7 @@ def collect_data(jpd_url, jpd_token):
             entity_data = response.json()
         except json.JSONDecodeError as e:
             print(f"Failed to parse JSON for {entity_type} from {entity_url}: {e}")
+            print("Response content:", response.text)  # Debugging line to print response content
             return None, None, None
 
         entity_names = []
@@ -194,7 +192,7 @@ def compare_data(data1, data2):
     return differences
 """
 
-def compare_data(data1, data2):
+def compare_data1(data1, data2):
     differences = {}
 
     # Find unique entity types in data1
@@ -232,6 +230,53 @@ def compare_data(data1, data2):
 
     return differences
 
+def compare_data(data1, data2, jpd_url1, jpd_url2):
+    differences = {}
+
+    def strip_base_url(url, base_url):
+        if url.startswith(base_url):
+            return url[len(base_url):]
+        return url
+
+    # Find unique entity types in data1
+    for entity_type, (entities1, _, json_data1) in data1.items():
+        if entity_type in data2:
+            entities2, _, json_data2 = data2[entity_type]
+        else:
+            entities2 = []
+            json_data2 = {}
+        unique_to_data1 = set(entities1) - set(entities2)
+        unique_to_data2 = set(entities2) - set(entities1)
+
+        entity_diffs = {}
+        common_entities = set(entities1) & set(entities2)
+        for entity in common_entities:
+            differing_properties = []
+            # Check for differing properties in json_data1[entity]
+            for prop in json_data1[entity]:
+                value1 = json_data1[entity][prop]
+                value2 = json_data2[entity].get(prop, None)
+                if prop == "url":
+                    value1 = strip_base_url(value1, jpd_url1)
+                    value2 = strip_base_url(value2, jpd_url2)
+                if value1 != value2:
+                    differing_properties.append((prop, (value1, value2)))
+            # Check for properties in json_data2[entity] that are not in json_data1[entity]
+            for prop in json_data2[entity]:
+                if prop not in json_data1[entity]:
+                    differing_properties.append((prop, (None, json_data2[entity][prop])))
+            entity_diffs[entity] = dict(differing_properties)
+        count_difference = abs(len(entities1) - len(entities2))
+        differences[entity_type] = (sorted(entities1), sorted(entities2), sorted(unique_to_data1), sorted(unique_to_data2), count_difference, entity_diffs)
+
+    # Find unique entity types in data2
+    for entity_type, (entities2, _, _) in data2.items():
+        if entity_type not in data1:
+            unique_to_data2 = entities2
+            count_difference = len(entities2)
+            differences[entity_type] = ([], sorted(entities2), [], sorted(unique_to_data2), count_difference, {})
+
+    return differences
 
 
 # Function to display data differences in tabular format
@@ -265,7 +310,8 @@ if __name__ == "__main__":
     data2 = collect_data(args.jpd_url2, args.jpd_token2)
 
     # Compare the data
-    differences = compare_data(data1, data2)
+    # differences = compare_data1(data1, data2)
+    differences = compare_data(data1, data2, args.jpd_url1, args.jpd_url2)
 
     # Display differences
     display_differences(differences)
