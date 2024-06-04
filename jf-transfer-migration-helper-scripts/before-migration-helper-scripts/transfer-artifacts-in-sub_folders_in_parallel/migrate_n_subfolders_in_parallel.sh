@@ -197,7 +197,8 @@ run_migrate_command() {
     # Disable debugging when no longer needed
     #  set +x
     if [ $src_exit_status -eq 0 ] && [ $target_exit_status -eq 0 ]; then
-        echo $src_output > "${a}.tmp"
+        # By using double quotes around $src_output when passing it to echo and when saving it to the file, the exact formatting, including extra spaces, is preserved.
+        echo "$src_output" > "${a}.tmp"
         echo "In run_migrate_command - 1 - b4 calling jq"
 #        cat "${a}.tmp"
         cat "${a}.tmp" | jq  '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | ((.path + "/" + .name) | sub("^\\./"; "")) + "," + (.sha256|tostring)'  > "$a"
@@ -206,7 +207,7 @@ run_migrate_command() {
 
         echo "$target_output" > "${b}.tmp"
 #        echo "In run_migrate_command - 3 - b4 calling jq"
-        # cat "${b}.tmp"
+#        cat "${b}.tmp"
         cat "${b}.tmp" | jq  '.results[] | select(has("path") and .path != null and has("name") and .name != null and has("sha256") and .sha256 != null) | ((.path + "/" + .name) | sub("^\\./"; "")) + "," + (.sha256|tostring)'  > "$b"
 #        echo "In run_migrate_command - 4 - after calling jq"
 
