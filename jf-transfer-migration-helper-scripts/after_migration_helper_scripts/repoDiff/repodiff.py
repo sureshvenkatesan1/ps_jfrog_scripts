@@ -81,12 +81,14 @@ def write_unique_uris_with_repo_prefix(output_file, unique_uris, source_rt_repo_
             uri_file.write(source_rt_repo_prefix + "/" + uri + '\n')
 
 # Filter and write the unique URIs "without unwanted files" , to a file in the output folder
-def write_filepaths_nometadata(unique_uris,filepaths_nometadata_file,):
+def write_filepaths_nometadata(unique_uris,filepaths_nometadata_file):
     with  open(filepaths_nometadata_file, "w") as filepaths_nometadata:
         for uri in unique_uris:
             file_name = uri.strip()
             if any(keyword in file_name for keyword in ["maven-metadata.xml", "Packages.bz2", ".gemspec.rz",
-                                                        "Packages.gz", "Release", ".json", "Packages", "by-hash", "filelists.xml.gz", "other.xml.gz", "primary.xml.gz", "repomd.xml", "repomd.xml.asc", "repomd.xml.key"]):
+                                                        "Packages.gz", "Release", ".json", "Packages", "by-hash",
+                                                        "filelists.xml.gz", "other.xml.gz", "primary.xml.gz",
+                                                        "repomd.xml", "repomd.xml.asc", "repomd.xml.key"]):
                 print(f"Excluded: as keyword in {file_name}")
             else:
                 print(f"Writing: {file_name}")
@@ -172,6 +174,24 @@ def write_artifact_stats_from_source_data(source_data, unique_uris, output_file)
         for uri, timestamp_utc in sorted_artifact_info:
             out_file.write(f"{timestamp_utc}\t{uri}\n")
 
+def extract_file_info(files):
+    return {file['uri']: file['size'] for file in files}
+
+def compare_logs(source_files, target_files):
+    delta_paths = []
+
+    for uri, size in source_files.items():
+        if uri not in target_files:
+            delta_paths.append((uri, size, "Not in target"))
+        elif size != target_files[uri]:
+            delta_paths.append((uri, size, f"Size mismatch: source={size}, target={target_files[uri]}"))
+
+    return delta_paths
+
+def write_all_filepaths_delta(delta_paths, log_path):
+    with open(log_path, 'w') as log_file:
+        for uri, size, reason in delta_paths:
+            log_file.write(f"{uri} {size} ({reason})\n")
 
 def main():
     # Parse command-line arguments
@@ -191,7 +211,7 @@ def main():
     # Fetch data from repositories
     source_log_file = os.path.join(output_dir, "source.log")
     fetch_repository_data(args.source_artifactory, args.source_repo, source_log_file, args.path_in_repo)
-    #
+
     target_log_file = os.path.join(output_dir, "target.log")
     fetch_repository_data(args.target_artifactory, args.target_repo, target_log_file, args.path_in_repo)
 
@@ -199,46 +219,58 @@ def main():
     source_data = load_json_file(source_log_file)
     target_data = load_json_file(target_log_file)
 
-    # Extract the "uri" values from both source and target files excluding the  "_uploads/" intermediate files in docker repos
-    # source_uris = {item['uri'] for item in source_data['files'] if "_uploads/" not in item['uri']}
-    # target_uris = {item['uri'] for item in target_data['files'] if "_uploads/" not in item['uri']}
-
     try:
-        source_uris = {item['uri'][1:] for item in source_data['files'] if "_uploads/" not in item['uri'] and
-                       "repository.catalog" not in item['uri']}
-        # Filter out URIs that start with ".jfrog" , ".npm" etc
-        source_uris = {uri for uri in source_uris if not uri.startswith(".")}
-
+        # Create the initial dictionary with the desired URIs and their sizes.
+        # Next, filter out URIs that start with ".jfrog" , ".npm" etc.
+        source_uris = {
+            item['uri'][1:]: item['size']
+            for item in source_data['files']
+            if "_uploads/" not in item['uri'] and
+               "repository.catalog" not in item['uri'] and
+               not item['uri'][1:].startswith(".")
+        }
     except KeyError:
-            print("Key 'files' not found in source_data. Please check the structure of the JSON file.")
-            return
+        print("Key 'files' not found in source_data. Please check the structure of the JSON file.")
+        return
 
     try:
-        target_uris = {item['uri'][1:] for item in target_data['files'] if "_uploads/" not in item['uri'] and
-                       "repository.catalog" not in item['uri']}
-        # Filter out URIs that start with ".jfrog" , ".npm" etc
-        target_uris = {uri for uri in target_uris if not uri.startswith(".")}
+        # Create the initial dictionary with the desired URIs and their sizes.
+        # Next, filter out URIs that start with ".jfrog" , ".npm" etc.
+        target_uris = {
+            item['uri'][1:]: item['size']
+            for item in target_data['files']
+            if "_uploads/" not in item['uri'] and
+               "repository.catalog" not in item['uri'] and
+               not item['uri'][1:].startswith(".")
+        }
     except KeyError:
         print("Key 'files' not found in target_data. Please check the structure of the JSON file.")
-        target_uris = set()
+        target_uris = {}
 
-    # Handle scenario when target_uris is empty or not initialized because the "--path-in-repo" does not exist in
-    # target artifactory
+    # Handle the scenario when target_uris is empty or not initialized because the "--path-in-repo" does not exist in
+    # target Artifactory.
     if not target_uris:
-        unique_uris = sorted(source_uris)
+        unique_uris = sorted(source_uris.keys())
     else:
-        # Find the unique URIs and calculate the total size
-        unique_uris = sorted(source_uris - target_uris)
-    total_size = sum(item['size'] for item in source_data['files'] if item['uri'] in unique_uris)
+        # Find the unique URIs that are either not in target_uris or have different sizes.
+        unique_uris = sorted(
+            uri for uri, size in source_uris.items()
+            if uri not in target_uris or source_uris[uri] != target_uris[uri]
+        )
+
+    # Calculate the total size of the unique URIs.
+    total_size = sum(
+        source_uris[uri] for uri in unique_uris
+    )
 
     # Write the unique URIs to a file in the output folder
     unique_uris_file = os.path.join(output_dir, "cleanpaths.txt")
-    write_unique_uris(unique_uris_file, unique_uris,total_size)
+    write_unique_uris(unique_uris_file, unique_uris, total_size)
 
     # Write the unique URIs "with repo prefix" to a file in the output folder
     prefix = f"{args.source_artifactory}/artifactory/{args.source_repo}"
-    filepaths_uri_file=os.path.join(output_dir, "filepaths_uri.txt")
-    write_unique_uris_with_repo_prefix(filepaths_uri_file,unique_uris,prefix)
+    filepaths_uri_file = os.path.join(output_dir, "filepaths_uri.txt")
+    write_unique_uris_with_repo_prefix(filepaths_uri_file, unique_uris, prefix)
 
     # fetch artifact statistics, extract the relevant information, and sort the lines in descending order of the lastDownloaded timestamp
     # to a file in the output folder
@@ -249,9 +281,14 @@ def main():
 
     # Filter and write the unique URIs "without unwanted files" , to a file in the output folder
     filepaths_nometadata_file = os.path.join(output_dir, "filepaths_nometadatafiles.txt")
-    write_filepaths_nometadata(unique_uris,filepaths_nometadata_file)
+    write_filepaths_nometadata(unique_uris, filepaths_nometadata_file)
 
+    source_files = extract_file_info(source_data['files'])
+    target_files = extract_file_info(target_data['files'])
 
+    delta_paths = compare_logs(source_files, target_files)
+    delta_log_path = os.path.join(output_dir, "all_delta_paths_with_differnt_sizes.txt")
+    write_all_filepaths_delta(delta_paths, delta_log_path)
 
 if __name__ == "__main__":
     main()
