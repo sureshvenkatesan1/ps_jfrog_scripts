@@ -247,7 +247,7 @@ Difference in file 2:
 
 ```
 
-The steps outlined above were utilized to address issue [289102](https://jfrog.lightning.force.com/lightning/r/Case/500Tc000004mJHTIA2/view).
+The steps outlined above were utilized to address issue [289102](https://jfrog.lightning.force.com/lightning/r/Case/500Tc000004mJHTIA2/view) via [PE-49251](https://jfrog-int.atlassian.net/browse/PE-49251)
 
 Additionally, due to user error (where the source JPD had LDAP integration while the SAAS instance had SAML integration, but some pipelines still used LDAP passwords, causing invalid credentials in the SAAS instance), users were blocked with the following error: "User xyz is blocked due to incorrect login attempts till 1709917726070."
 
