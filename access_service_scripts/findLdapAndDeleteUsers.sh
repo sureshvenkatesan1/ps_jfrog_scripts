@@ -8,22 +8,23 @@ set -e
 set -u
 
 ### Get Arguments
-SOURCE_JPD_URL="${1:?please enter JPD URL. ex - https://ramkannan.jfrog.io}"
-USER_NAME="${2:?please provide the username in JPD . ex - admin}"
-USER_TOKEN="${3:?please provide the identity token}"
-
-groups_target_list="groups_target_list.txt"
+JPD_URL="${1:?please enter JPD URL. ex - https://ramkannan.jfrog.io}"
+JPD_AUTH_TOKEN="${2:?please provide the identity token}"
 
 rm -rf *.txt
-rm -rf *.json*
+rm -rf *.json
 
-curl -XGET -u $USER_NAME:$USER_TOKEN "$SOURCE_JPD_URL/artifactory/api/security/groups" -s | jq -rc '.[] | .name' > $groups_target_list
+### define variables
+userlist="users_ldap_list.txt"
 
-echo -e "\nGROUPS LIST"
-while IFS= read -r groups; do
-    echo -e "\nGetting JSON for Group ==> $groups"\
-    curl -XGET -u $USER_NAME:$USER_TOKEN "$SOURCE_JPD_URL/artifactory/api/security/groups/$groups?includeUsers=true" -s | jq -rcS .userNames | jq -r ''
-done < $groups_target_list
+### define variables
+curl -XGET -H "Authorization: Bearer $JPD_AUTH_TOKEN" "${JPD_URL}/artifactory/api/security/users" -s | jq -rc '.[] | select( .realm == "ldap" ) | .name' | sort > $userlist
 
+### Run the curl API 
+while IFS= read -r username; do
+    echo -e "Deleting user == $username =="
+    #curl -XDELETE -H "Authorization: Bearer $JPD_AUTH_TOKEN" "${JPD_URL}/access/api/v2/users/${username}" -s
+    echo -e ""
+done < $userlist
 
-### sample cmd to run - ./list_null_users_in_group.sh https://ramkannan.jfrog.io admin ****
+### sample cmd to run - ./findLdapAndDeleteUsers.sh https://iggroup.jfrog.io ****

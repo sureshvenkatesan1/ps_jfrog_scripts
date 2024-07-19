@@ -9,21 +9,19 @@ set -u
 
 ### Get Arguments
 SOURCE_JPD_URL="${1:?please enter JPD URL. ex - https://ramkannan.jfrog.io}"
-USER_NAME="${2:?please provide the username in JPD . ex - admin}"
-USER_TOKEN="${3:?please provide the identity token}"
+USER_TOKEN="${2:?please provide the identity token}"
 
-groups_target_list="groups_target_list.txt"
+groups_target_list="groups_list.txt"
 
-rm -rf *.txt
-rm -rf *.json*
+rm -rf groupsList ; mkdir groupsList ; cd groupsList/
 
-curl -XGET -u $USER_NAME:$USER_TOKEN "$SOURCE_JPD_URL/artifactory/api/security/groups" -s | jq -rc '.[] | .name' > $groups_target_list
+curl -XGET -H "Authorization: Bearer $USER_TOKEN" "$SOURCE_JPD_URL/artifactory/api/security/groups" -s | jq -rc '.[] | .name' > $groups_target_list
 
 echo -e "\nGROUPS LIST"
 while IFS= read -r groups; do
-    echo -e "\nGetting JSON for Group ==> $groups"\
-    curl -XGET -u $USER_NAME:$USER_TOKEN "$SOURCE_JPD_URL/artifactory/api/security/groups/$groups?includeUsers=true" -s | jq -rcS .userNames | jq -r ''
+    echo -e "\nGetting JSON for Group ==> $groups"
+    curl -XGET -H "Authorization: Bearer $USER_TOKEN" "$SOURCE_JPD_URL/artifactory/api/security/groups/$groups?includeUsers=true" -s > "$groups.json"
 done < $groups_target_list
 
 
-### sample cmd to run - ./list_null_users_in_group.sh https://ramkannan.jfrog.io admin ****
+### sample cmd to run - ./getAllGroupsJson.sh https://iggroup.jfrog.io ****
