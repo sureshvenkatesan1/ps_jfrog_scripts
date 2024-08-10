@@ -152,7 +152,9 @@ Print all lines from the file that do not match the pattern "-202":
 ```
 awk '!/-202/' filepaths_nometadatafiles.txt
 ```
-Note:
+
+Optional Helper commands ( not required , just FYI):
+```
 Both the following grep commands were slow on my mac to check for files not containing "-202" in the file name in the 4 MB filepaths_nometadatafiles.txt:
 
 uses regex:
@@ -160,3 +162,8 @@ grep -v "-202" filepaths_nometadatafiles.txt
 and
 The -F flag for grep can be used to treat the search pattern as a fixed string (rather than a regular expression)
 grep -vF "-202" filepaths_nometadatafiles.txt
+
+Instead this is fast , tells awk to print all lines from the file that do not match the pattern "-202".:
+awk '!/-202/' filepaths_nometadatafiles.txt 
+
+```
