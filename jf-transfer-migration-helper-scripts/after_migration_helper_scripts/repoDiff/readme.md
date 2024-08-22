@@ -167,3 +167,17 @@ Instead this is fast , tells awk to print all lines from the file that do not ma
 awk '!/-202/' filepaths_nometadatafiles.txt 
 
 ```
+---
+#### Performance improvement in Script Functions:
+
+- **`extract_file_info(files)`**:
+  - Converts a list of files into a dictionary (hashmap) where the `uri` is the key, and the value is a tuple of the file’s `size` and `sha1` checksum.
+  - This dictionary enables constant-time complexity for lookups.
+
+- **`compare_logs(source_files, target_files)`**:
+  - Compares the source and target dictionaries by checking if each file exists in both locations and if their 
+    checksums match. Using  dictionaries to perform quick lookups and comparisons reduces the time
+    complexity to O(1) for each lookup , making it scalable for large datasets.
+  - Returns a list of `uri` paths with mismatches or missing files.
+
+---

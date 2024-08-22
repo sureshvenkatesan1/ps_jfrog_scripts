@@ -41,6 +41,10 @@ def read_repo_keys(repo_keys_file):
     with open(repo_keys_file, 'r') as repo_file:
         return [line.strip() for line in repo_file]
 
+# This function performs lookups for repository details from source_data and target_data using the repoKey.
+# However, this lookup is currently done using a list comprehension with next(), which scans the entire list for each key.
+
+"""
 def extract_repo_details(repo_keys, source_data, target_data):
     repo_details_of_interest = []
     for repo_key in repo_keys:
@@ -56,7 +60,29 @@ def extract_repo_details(repo_keys, source_data, target_data):
     filtered_repo_details = [repo for repo in repo_details_of_interest if repo['source'] is not None and repo['target'] is not None]
 
     return filtered_repo_details
+"""
+# To optimize this, you could convert the source_data['repositoriesSummaryList'] and target_data['repositoriesSummaryList'] into dictionaries where the keys are repoKey values.
+# This would allow constant-time lookups, significantly speeding up the comparison process.
+def extract_repo_details(repo_keys, source_data, target_data):
+    # Convert lists to dictionaries for O(1) lookups
+    source_dict = {repo['repoKey']: repo for repo in source_data['repositoriesSummaryList']}
+    target_dict = {repo['repoKey']: repo for repo in target_data['repositoriesSummaryList']}
 
+    repo_details_of_interest = []
+    for repo_key in repo_keys:
+        source_repo_details = source_dict.get(repo_key)
+        target_repo_details = target_dict.get(repo_key)
+
+        repo_details_of_interest.append({
+            'repoKey': repo_key,
+            'source': source_repo_details,
+            'target': target_repo_details
+        })
+
+    # Filter out entries with None for both repo['source'] and repo['target']
+    filtered_repo_details = [repo for repo in repo_details_of_interest if repo['source'] is not None and repo['target'] is not None]
+
+    return filtered_repo_details
 
 #To calculate the space difference based on the presence of "usedSpaceInBytes" or "usedSpace" and handle different
 # units (MB, GB, TB) for "usedSpace"
