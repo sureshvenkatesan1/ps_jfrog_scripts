@@ -2,36 +2,21 @@
 
 ## Overview
 
-This script compares the configurations of two JFrog Platform Deployments (JPDs) by fetching data from various endpoints and comparing the results. The script dynamically determines the appropriate permissions API endpoint based on the Artifactory version of each JPD.
+The [compare_2_jpd_configs_v2.py](compare_2_jpd_configs_v2.py) script compares the configurations of two JFrog Platform Deployments (JPDs) by fetching data from various endpoints and comparing the results.
+
+The entities compared include repositories, users, groups, permissions, tokens, projects, builds, property sets, Xray watches, policies, and ignore rules.
+
+ To compare the permisisons the script determines the appropriate permissions API endpoint based on the Artifactory version of each JPD.
 
 ## Requirements
 
 - Python 3.x
-- `requests` library
-- `tabulate` library
+- `requests` library (`pip install requests`)
+- `tabulate` library (`pip install tabulate`)
 
-## Installation
 
-1. **Clone the repository** or **download the script**:
-    ```sh
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
-
-2. **Install required Python packages**:
-    ```sh
-    pip install requests tabulate
-    ```
 
 ## Usage
-
-### Command-Line Arguments
-
-- `jpd_url1`: URL of the first JPD.
-- `jpd_token1`: Token for accessing the first JPD.
-- `jpd_url2`: URL of the second JPD.
-- `jpd_token2`: Token for accessing the second JPD.
-- `output_file`: File to write the differences to.
 
 ### Running the Script
 
@@ -40,6 +25,13 @@ Execute the script with the required arguments:
 ```sh
 python3 compare_2_jpd_configs.py <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2> <output_file>
 ```
+### Command-Line Arguments
+
+- `jpd_url1`: URL of the first JPD.
+- `jpd_token1`: Token for accessing the first JPD.
+- `jpd_url2`: URL of the second JPD.
+- `jpd_token2`: Token for accessing the second JPD.
+- `output_file`: File to write the differences to.
 
 ### Example
 
@@ -72,6 +64,8 @@ The script logs the usage of the permissions API for each JPD, making it clear w
 Using permissions API '/access/api/v2/permissions' for JPD1 at 'https://serverid1.jfrog.io' with version 7.88.0
 Using permissions API '/access/api/v2/permissions' for JPD2 at 'https://serverid2.jfrog.io' with version 7.88.0
 ```
+The script outputs the differences between the two JPDs in a tabular format, including entity types, entities common to both JPDs, entities unique to each JPD, and the count difference of entities between JPDs.
+An example report is in [jpd_diff.txt](output/jpd_diff.txt) and [output_v2.txt](output/output_v2.txt)
 
 ## Troubleshooting
 
