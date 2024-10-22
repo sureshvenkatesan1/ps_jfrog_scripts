@@ -23,7 +23,7 @@ The entities compared include repositories, users, groups, permissions, tokens, 
 Execute the script with the required arguments:
 
 ```sh
-python3 compare_2_jpd_configs.py <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2> <output_file>
+python compare_2_jpd_configs_v2 <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2> <output_file>
 ```
 ### Command-Line Arguments
 
@@ -36,7 +36,7 @@ python3 compare_2_jpd_configs.py <jpd_url1> <jpd_token1> <jpd_url2> <jpd_token2>
 ### Example
 
 ```sh
-python3 compare_2_jpd_configs.py https://serverid1.jfrog.io ABC123 https://serverid2.jfrog.io XYZ789 differences_output.txt
+python compare_2_jpd_configs.py https://serverid1.jfrog.io ABC123 https://serverid2.jfrog.io XYZ789 differences_output.txt
 ```
 
 In this example:

@@ -1,12 +1,12 @@
 # Compare 2 JPD Configs
 
-This Python script is designed to compare configurations between two JFrog Platform Deployments (JPDs) configurations.
+The [compare_2_jpd_configs_v1.py](compare_2_jpd_configs_v1.py) script is designed to compare configurations between two JFrog Platform Deployments (JPDs) configurations.
 It collects data from specified JPDs and displays the differences in a tabular format.
 
 ## Usage
 
 ```bash
-python compare_2_jpd_configs.py https://psazuse.jfrog.io $psazuse_token https://psemea.jfrog.io $psemea_token > jpd_diff.txt
+python compare_2_jpd_configs_v1.py https://psazuse.jfrog.io $psazuse_token https://psemea.jfrog.io $psemea_token > jpd_diff.txt
 ```
 
 Replace `$psazuse_token` and `$psemea_token` with your access tokens for the respective JPDs.
