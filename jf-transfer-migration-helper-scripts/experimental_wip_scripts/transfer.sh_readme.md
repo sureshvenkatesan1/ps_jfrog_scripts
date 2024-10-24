@@ -25,12 +25,12 @@ Here's a breakdown of what the `runtask()` function does step by step:
 The function is called within a loop that iterates over repositories on the source server, invoking `runtask` for each repository. The purpose of the script is to identify and potentially transfer files from the source Artifactory server to the target Artifactory server based on the specified criteria. It can be used for synchronization or backup purposes.
 =================
 Improve on https://git.jfrog.info/projects/PROFS/repos/ps_jfrog_scripts/browse/transfer-artifacts/transfer.sh
-cd /Users/sureshv/Documents/From_Customer/Bose/tests/aql
+cd /Users/sureshv/Documents/From_Customer/example/tests/aql
 
 jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $SOURCE_ID --data "items.find({\"repo\": \"$REPO\",\"type\": \"file\",\"path\" : \".conan\"}).include(\"repo\",\"path\",\"name\",\"sha256\")" | jq '.results[]|(.path +"/"+ .name+","+(.sha256|tostring))' | sed  's/\.\///'
 
 # for path sureshv-liquid-test/_/autoconf/
-SOURCE_ID=bosesaas
+SOURCE_ID=examplesaas
 REPO=sureshv-liquid-test
 jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $SOURCE_ID --data "items.find(   {
       \"repo\":  {\"\$eq\":\"$REPO\"},
@@ -39,9 +39,9 @@ jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $S
 
     }).include(\"repo\",\"path\",\"name\",\"sha256\")" | jq '.results[]|(.path +"/"+ .name+","+(.sha256|tostring))' | wc -l
 
-jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id bosesh --data "items.find({\"repo\": {\"\$eq\":\"sureshv-liquid-test\"}, \"path\": {\"\$match\": \"_/autoconf/*\"}, \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")"
+jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id examplesh --data "items.find({\"repo\": {\"\$eq\":\"sureshv-liquid-test\"}, \"path\": {\"\$match\": \"_/autoconf/*\"}, \"type\": \"file\"}).include(\"repo\",\"path\",\"name\",\"sha256\")"
 
-jf rt curl -s -XPOST -H 'Content-Type: text/plain' /api/search/aql --server-id bosesh --data 'items.find(   {
+jf rt curl -s -XPOST -H 'Content-Type: text/plain' /api/search/aql --server-id examplesh --data 'items.find(   {
       "repo":  {"$eq":"sureshv-liquid-test"},
       "path": {"$match": "_/autoconf/*"},
       "type": "file"
@@ -51,7 +51,7 @@ jf rt curl -s -XPOST -H 'Content-Type: text/plain' /api/search/aql --server-id b
 
 jf rt curl  -k -XGET "/api/storage/$REPO?list&deep=1&depth=1&listFiles=1" --server-id $SOURCE_ID
 =========
-SOURCE_ID=bosesh
+SOURCE_ID=examplesh
 REPO=sureshv-liquid-generic
 jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $SOURCE_ID --data "items.find(   {
       \"repo\":  {\"\$eq\":\"$REPO\"},
@@ -60,6 +60,6 @@ jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id $S
 
     }).include(\"repo\",\"path\",\"name\",\"sha256\")" | jq '.results[]|(.path +"/"+ .name+","+(.sha256|tostring))'
 
-jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id bosesh --data 'items.find({"repo": {"$eq":"sureshv-liquid-generic"}, "path": {"$match": "test/CastleFrontDoorUtility/*"}, "type": "file"}).include("repo","path","name","sha256")'
+jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id examplesh --data 'items.find({"repo": {"$eq":"sureshv-liquid-generic"}, "path": {"$match": "test/CastleFrontDoorUtility/*"}, "type": "file"}).include("repo","path","name","sha256")'
 
-jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id bosesh --data 'items.find({"repo": {"$eq":"sureshv-liquid-generic"}, "path": {"$match": "test/*"}, "type": "file"}).include("repo","path","name","sha256")'
+jf rt curl -s -XPOST -H 'Content-Type: text/plain' api/search/aql --server-id examplesh --data 'items.find({"repo": {"$eq":"sureshv-liquid-generic"}, "path": {"$match": "test/*"}, "type": "file"}).include("repo","path","name","sha256")'

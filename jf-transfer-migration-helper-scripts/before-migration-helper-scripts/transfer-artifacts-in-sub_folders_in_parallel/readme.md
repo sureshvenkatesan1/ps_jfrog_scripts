@@ -31,9 +31,9 @@ This is because  7+ million artifacts  out of 17+ million in the Artifactory are
 
 This `merlin` mono-repo has 23.48 TB data  and 9.5 million artifacts.
 
-Another `liquid` monorepo which is only 1.61 TB has simlar issue ( most of the artifacts are under ` liquid/BoseCorp/`)  and so following fails :
+Another `liquid` monorepo which is only 1.61 TB has simlar issue ( most of the artifacts are under ` liquid/exampleCorp/`)  and so following fails :
 ```
-jf rt cp liquid/BoseCorp/  sureshv-liquid-generic/ --flat=false --threads=8 --dry-run=false --server-id YOUR_RT_SERVERID
+jf rt cp liquid/exampleCorp/  sureshv-liquid-generic/ --flat=false --threads=8 --dry-run=false --server-id YOUR_RT_SERVERID
 ```
 
 It fails with:
@@ -43,7 +43,7 @@ It fails with:
 15:23:08 [🔵Info] Searching artifacts...
 15:23:08 [Debug] Usage Report: Sending info...
 15:23:08 [Debug] Searching Artifactory using AQL query:
- items.find({"type":"any","path":{"$ne":"."},"$or":[{"$and":[{"repo":"liquid","path":"BoseCorp","name":{"$match":"*"}}]},{"$and":[{"repo":"liquid","path":{"$match":"BoseCorp/*"},"name":{"$match":"*"}}]}]}).include("name","repo","path","actual_md5","actual_sha1","sha256","size","type","modified","created")
+ items.find({"type":"any","path":{"$ne":"."},"$or":[{"$and":[{"repo":"liquid","path":"exampleCorp","name":{"$match":"*"}}]},{"$and":[{"repo":"liquid","path":{"$match":"exampleCorp/*"},"name":{"$match":"*"}}]}]}).include("name","repo","path","actual_md5","actual_sha1","sha256","size","type","modified","created")
 15:23:08 [Debug] Sending HTTP POST request to: https://xyz.jfrog.io/artifactory/api/search/aql
 15:23:08 [Debug] Sending HTTP GET request to: https://xyz.jfrog.io/artifactory/api/system/version
 15:23:08 [Debug] Artifactory response: 200 OK

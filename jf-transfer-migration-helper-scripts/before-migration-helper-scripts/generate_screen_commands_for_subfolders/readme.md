@@ -42,12 +42,12 @@ python generate_screen_commands_for_subfolders.py \
 --source_repo merlin \
 --target_jpd jfrogio \
 --target_repo merlin \
---root_folder BoseCorp \
+--root_folder exampleCorp \
 --path_to_migrate_subfolder_script "/app/sureshv/migrate_n_subfolders_in_parallel.sh" \
 --max_subfolders_to_migrate_in_parallel 18 \
 --outdir "/app/sureshv/merlin"
 ```
-Here BoseCorp is a folder under merlin repository.
+Here exampleCorp is a folder under merlin repository.
 In the  "/app/sureshv/merlin" you will find the  generated script similar to [merlin_generated_screen_cmds.sh](output/merlin_generated_screen_cmds.sh) .
 
 This will generate screen commands to migrate subfolders from the merlin repository in the usvartifactory5 Artifactory server to the merlin repository in the jfrogio Artifactory server. The screen commands will be saved in a Bash script file in the specified output directory.
@@ -98,7 +98,7 @@ There are screens on:
         7653.merlin-session43   (Detached)
         7614.merlin-session41   (Detached)
 ```
-So I know that out of the 106 subfolders under `BoseCorp` folder it is now migrating the above numbered folders i.e 41 - 81 ( so the folders for 1-40 and those that you do not see in 41 - 81 have already been migrated and it is yet to do 82-106 folders)
+So I know that out of the 106 subfolders under `exampleCorp` folder it is now migrating the above numbered folders i.e 41 - 81 ( so the folders for 1-40 and those that you do not see in 41 - 81 have already been migrated and it is yet to do 82-106 folders)
 
 To see the number of artifacts per folder that have been successfully migrated , run:
 ```
