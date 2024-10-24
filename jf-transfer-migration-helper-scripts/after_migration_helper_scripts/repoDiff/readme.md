@@ -21,14 +21,35 @@ and uses the jfrog cli to connect to Artifactory.
 - Supports filtering out unwanted metadata files.
 - Logs detailed information about artifact download statistics.
 
+---
 ## Prerequisites
 
 Before running the script, ensure you have the following prerequisites:
 
-- Python 3.x
+- Python >= 3.7
 - [Artifactory CLI (JFrog CLI)](https://www.jfrog.com/confluence/display/JFROG/JFrog+CLI) installed and configured 
   with server IDs to access source and target JFrog Artifactory instances
 
+Note: If you are using Python 3.6 the script will fail with below stack:
+```
+   subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+ File "/usr/lib64/python3.6/subprocess.py", line 423, in run
+   with Popen(*popenargs, **kwargs) as process:
+ TypeError: __init__() got an unexpected keyword argument 'text'
+``` 
+This is due to the `text=True` argument passed to `subprocess.run` in Python. The text=True option is only available from Python 3.7 and later.
+To resolve this issue, you can modify the `subprocess.run` call to be compatible with older versions of Python by replacing `text=True` with `universal_newlines=True`. Here's the change:
+```
+# Old line causing the issue:
+subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+
+# Updated line:
+subprocess.run(command, stdout=output, stderr=subprocess.PIPE, universal_newlines=True, check=True)
+
+```
+The `universal_newlines=True` argument provides similar functionality, making the output text-based instead of bytes-based, which should resolve the issue in older versions of Python.
+
+---
 ## Usage
 
 1. Download the script  [repodiff.py](repodiff.py)  to your local machine.
