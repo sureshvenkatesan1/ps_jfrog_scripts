@@ -42,7 +42,7 @@ successful_commands_file="successful_commands.txt"
 all_commands_file="all_commands.txt"
 skipped_commands_file="skipped_commands.txt"
 
-touch "$successful_folders_file"
+# touch "$successful_folders_file"
 
 # Function to run the jf rt cp command and log any failures
 # The eval command is used to execute the cp_command, and the standard error (error stream) is redirected to standard output (2>&1).
@@ -92,17 +92,22 @@ run_cp_command() {
 # Loop through the folders and generate the jf rt cp commands
 for folder_position in "${!folders_array[@]}"; do
     folder="${folders_array[$folder_position]}"
-    # Check if the folder name is ".conan" and skip it as it will be generated
-    if [ "$folder" = "/.conan" ]; then
+    folder_name="${folder#/}"
+
+
+    # Now check if the folder_name starts with a dot like ".conan" , ".npm" or if it's "_uploads" skip it
+    #  as it will be generated
+    if [[ "$folder_name" == .* ]] || [ "$folder_name" = "_uploads" ]; then
+        echo "============excluding=====>${folder_name}"
         continue  # Skip this iteration of the loop
     fi
 
     if [ -z "$root_folder" ]; then
-        cp_command="jf rt cp $source_repo$folder/ $target_repo/ --flat=false --threads=8 --dry-run=false --server-id $target_artifactory"
-        run_cp_command "$cp_command" "$source_repo$folder/" "$((folder_position + 1))" &
+        cp_command="jf rt cp $source_repo/$folder_name/ $target_repo/ --flat=false --threads=8 --dry-run=false --server-id $target_artifactory"
+        run_cp_command "$cp_command" "$source_repo/$folder_name/" "$((folder_position + 1))" &
     else
-        cp_command="jf rt cp $source_repo/$root_folder$folder/ $target_repo/ --flat=false --threads=8 --dry-run=false --server-id $target_artifactory"
-        run_cp_command "$cp_command" "$source_repo/$root_folder$folder/" "$((folder_position + 1))" &
+        cp_command="jf rt cp $source_repo/$root_folder/$folder_name/ $target_repo/ --flat=false --threads=8 --dry-run=false --server-id $target_artifactory"
+        run_cp_command "$cp_command" "$source_repo/$root_folder/$folder_name/" "$((folder_position + 1))" &
     fi
 
     

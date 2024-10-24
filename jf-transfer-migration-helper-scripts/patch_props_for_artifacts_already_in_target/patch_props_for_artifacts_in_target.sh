@@ -260,11 +260,13 @@ total_folders="$(expr "${#folders_array[@]}" + 1)"
         folder="${folders_array[$folder_position]}"
         #Remove the leading slash i.e if folder is "/abc" it becomes "abc"
         folder="${folder#/}"
-        # Check if the folder name is ".conan" and skip it as it will be generated
-        if [ "$folder" = ".conan" ] ||  [ "$folder" = ".jfrog" ]; then
+
+        # Now check if the folder_name starts with a dot like ".conan" , ".npm" or if it's "_uploads" skip it
+        #  as it will be generated
+        if [[ "$folder" == .* ]] || [ "$folder" = "_uploads" ]; then
+            echo "============excluding=====>${folder}"
             continue  # Skip this iteration of the loop
         fi
-
 
         src_list_command=""
         target_list_command=""

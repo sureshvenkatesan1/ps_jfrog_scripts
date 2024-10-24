@@ -386,10 +386,11 @@ migrateFolderRecursively(){
                 #Remove the leading slash i.e if folder is "/abc" it becomes "abc"
                 folder="${folder#/}"
                 if [ -n "$folder" ]; then # folder is not null
-                    # Check if the folder name is ".conan" and skip it as it will be generated.
-                    # Also skip "_uploads" folder for Docker repos
+                    # Check if the folder name starts with a dot like ".conan" , ".npm" or if it's "_uploads" skip it
+                    # as it will be generated.
+                    # Also skip any other folder in the "$EXCLUDE_FOLDERS" that user wants to exclude
                     echo "~~~~~~~~~~~>${folder}"
-                    if [[ "$EXCLUDE_FOLDERS" == *";$folder;"* ]] || [ "$folder" = "_uploads" ]; then
+                    if [[ "$EXCLUDE_FOLDERS" == *";$folder;"* ]] || [[ "$folder" == .* ]]  || [ "$folder" = "_uploads" ]; then
                         echo "============excluding=====>${folder}"
                         continue  # Skip this iteration of the loop
                     fi
