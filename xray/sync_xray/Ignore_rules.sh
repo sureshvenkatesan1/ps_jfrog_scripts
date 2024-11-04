@@ -2,7 +2,7 @@
 #  NOTE: Policies and Watches must be synced before running IgnoreRule sync
 ################################################################################################## 
 source_id="${1:?Source ID for JF CLI.}"
-target_id="${1:?Target ID for JF CLI.}"
+target_id="${2:?Target ID for JF CLI.}"
 # #### Sync all golbal ignore_rules and no project polices.
 for igname in `jf xr curl -s -XGET api/v1/ignore_rules --server-id $source_id| jq -r '.data[]| select(.project_key|not) | .id'`
 do
