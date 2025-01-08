@@ -1,0 +1,53 @@
+{
+  "type": "virtualRepoConfig",
+  "general": {
+    "repoKey": "sup016-npm-virtual",
+    "projectKey": "default",
+    "environments": []
+  },
+  "basic": {
+    "publicDescription": "",
+    "internalDescription": "",
+    "includesPattern": "**/*",
+    "excludesPattern": "",
+    "layout": "npm-default",
+    "selectedRepositories": [
+      { "repoName": "sup016-npm-dev-local", "type": "local", "disabled": true },
+      { "repoName": "sup016-npm-qa-local", "type": "local", "disabled": false },
+      {
+        "repoName": "sup016-npm-prod-local",
+        "type": "local",
+        "disabled": false
+      },
+      {
+        "repoName": "swampup2022-npm-main",
+        "type": "remote",
+        "disabled": false
+      },
+      { "repoName": "sup016-npm-remote", "type": "remote", "disabled": false }
+    ],
+    "resolvedRepositories": [
+      { "repoName": "sup016-npm-dev-local", "type": "local" },
+      { "repoName": "sup016-npm-qa-local", "type": "local" },
+      { "repoName": "sup016-npm-prod-local", "type": "local" },
+      { "repoName": "sup016-npm-remote", "type": "remote" },
+      { "repoName": "swampup2022-npm-main", "type": "remote" }
+    ],
+    "defaultDeploymentRepo": "sup016-npm-dev-local",
+    "ineligibleRepositories": []
+  },
+  "advanced": {
+    "retrieveRemoteArtifacts": false,
+    "hideUnauthorizedResources": false,
+    "signedUrlTtl": 90,
+    "priorityResolution": false
+  },
+  "typeSpecific": {
+    "repoType": "Npm",
+    "enableExternalDependencies": false,
+    "externalRemoteRepo": "sup016-npm-remote",
+    "virtualRetrievalCachePeriodSecs": 600,
+    "listRemoteFolderItems": false,
+    "url": "https://registry.npmjs.org"
+  }
+}
