@@ -154,10 +154,12 @@ def get_docker_repo_all_uploads_files_count_and_total_size(repo_key, artifactory
 
 def all_non_docker_repo_paths_in_dot_folder_count_and_total_size(repo_key, artifactory_server_id , output_dir):
     # Define the AQL query as a string
+    # all artifacts in subdirectories (.* for example "path" : ".xyz") are included, but artifacts in the root directory ("path": ".") are excluded
     aql_query = f'''items.find(
         {{ "repo": "{repo_key}",
-             "$or": [
-                {{"path": {{"$match": ".*"}}}}
+            "$and": [
+                { "path": { "$match": ".*" } },
+                { "path": { "$ne": "." } }
             ]
         }}
     )'''
