@@ -1,0 +1,101 @@
+{
+  "repositories": [
+    {
+      "repository": "acme-sthings-test-local",
+      "type": "LOCAL",
+      "assigned_to": "mlops",
+      "shared_with_projects": [],
+      "shared_with_all_projects": false,
+      "environments": [
+        "DEV"
+      ]
+    },
+    {
+      "repository": "jay-maven-release-virtual",
+      "type": "VIRTUAL",
+      "assigned_to": "jay-pro",
+      "shared_with_projects": [],
+      "shared_with_all_projects": false,
+      "environments": [
+        "DEV"
+      ]
+    },
+    {
+      "repository": "maven-nested-remote",
+      "type": "VIRTUAL",
+      "assigned_to": "None",
+      "shared_with_projects": [
+        "ns2",
+        "ns1"
+      ],
+      "shared_with_all_projects": false,
+      "environments": [
+        "DEV"
+      ]
+    }
+  
+  ],
+  "projects": {
+    "mlops": {
+      "display_name": "mlops_demo",
+      "description": "",
+      "assigned_repositories": "acme-sthings-test-local;mlops-local-HugF-dev;mlops-local-HugF-prod;mlops-local-HugF-qa;mlops-remote-huggingface;mlops-remote-pypi",
+      "shared_repositories": "",
+      "assigned_repositories_local": "acme-sthings-test-local;mlops-local-HugF-dev;mlops-local-HugF-prod;mlops-local-HugF-qa",
+      "assigned_repositories_remote": "mlops-remote-huggingface;mlops-remote-pypi",
+      "assigned_repositories_virtual": "",
+      "assigned_repositories_federated": "",
+      "shared_repositories_local": "",
+      "shared_repositories_remote": "",
+      "shared_repositories_virtual": "",
+      "shared_repositories_federated": ""
+    },
+    "br": {
+      "display_name": "BRTeam",
+      "description": "Test proj-sync",
+      "assigned_repositories": "appid1-docker;appid1-docker-local;appid1-docker-remote;appid2-libs-release;appid2-libs-release-local;appid2-libs-snapshot;appid2-libs-snapshot-local;maven-remote;pipelines-templates-virtual",
+      "shared_repositories": "",
+      "assigned_repositories_local": "appid1-docker-local;appid2-libs-release-local;appid2-libs-snapshot-local",
+      "assigned_repositories_remote": "appid1-docker-remote;maven-remote",
+      "assigned_repositories_virtual": "appid1-docker;appid2-libs-release;appid2-libs-snapshot;pipelines-templates-virtual",
+      "assigned_repositories_federated": "",
+      "shared_repositories_local": "",
+      "shared_repositories_remote": "",
+      "shared_repositories_virtual": "",
+      "shared_repositories_federated": ""
+    },
+    "ns1": {
+      "display_name": "Nested_repo_1",
+      "description": "",
+      "assigned_repositories": "ns1-maven-remote",
+      "shared_repositories": "demoenv-test-bio;maven-nested-remote",
+      "assigned_repositories_local": "",
+      "assigned_repositories_remote": "ns1-maven-remote",
+      "assigned_repositories_virtual": "",
+      "assigned_repositories_federated": "",
+      "shared_repositories_local": "demoenv-test-bio",
+      "shared_repositories_remote": "",
+      "shared_repositories_virtual": "maven-nested-remote",
+      "shared_repositories_federated": ""
+    },
+    "demo": {
+      "display_name": "novu",
+      "description": "",
+      "assigned_repositories": "demo-local-docker-dev;demo-local-docker-prod;demo-local-docker-qa;demo-local-mvn-dev;demo-local-mvn-prod;demo-local-mvn-qa;demo-local-npm-dev;demo-local-npm-prod;demo-local-npm-qa;demo-release-bundles-v2;demo-remote-docker;demo-remote-mvn;demo-remote-npm;demo-virtual-docker;demo-virtual-mvn;demo-virtual-npm",
+      "shared_repositories": "",
+      "assigned_repositories_local": "demo-local-docker-dev;demo-local-docker-prod;demo-local-docker-qa;demo-local-mvn-dev;demo-local-mvn-prod;demo-local-mvn-qa;demo-local-npm-dev;demo-local-npm-prod;demo-local-npm-qa;demo-release-bundles-v2",
+      "assigned_repositories_remote": "demo-remote-docker;demo-remote-mvn;demo-remote-npm",
+      "assigned_repositories_virtual": "demo-virtual-docker;demo-virtual-mvn;demo-virtual-npm",
+      "assigned_repositories_federated": "",
+      "shared_repositories_local": "",
+      "shared_repositories_remote": "",
+      "shared_repositories_virtual": "",
+      "shared_repositories_federated": ""
+    }
+
+  },
+  "shared_with_all_projects": [
+    "pipelines-templates-local",
+    "pipelines-templates-virtual"
+  ]
+}

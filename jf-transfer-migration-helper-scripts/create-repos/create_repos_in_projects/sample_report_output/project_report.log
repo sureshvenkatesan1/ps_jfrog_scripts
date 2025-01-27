@@ -1,0 +1,11 @@
+2025-01-26 16:42:51,266 - INFO - Found 1327 total repositories
+2025-01-26 16:42:51,266 - INFO - Processing 1327 repositories using 20 parallel threads...
+2025-01-26 16:42:52,037 - ERROR - Error fetching project details for Poperty_demo: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/Poperty_demo
+2025-01-26 16:42:52,040 - ERROR - Error fetching project details for Repo_diff_plugin: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/Repo_diff_plugin
+2025-01-26 16:42:52,041 - ERROR - Error fetching project details for PT-test-jay: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/PT-test-jay
+2025-01-26 16:42:52,042 - ERROR - Error fetching project details for ad-nuget-local-qa: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/ad-nuget-local-qa
+2025-01-26 16:42:52,043 - ERROR - Error fetching project details for C-publish-local: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/C-publish-local
+2025-01-26 16:43:36,762 - ERROR - Error fetching project details for yoni-fed-general: 404 Client Error: Not Found for url: https://psemea.jfrog.io/access/api/v1/projects/_/repositories/yoni-fed-general
+2025-01-26 16:43:36,764 - INFO - Generating reports...
+2025-01-26 16:43:36,795 - INFO - Fetching project details...
+2025-01-26 16:43:38,909 - INFO - Report saved to project_report.json
