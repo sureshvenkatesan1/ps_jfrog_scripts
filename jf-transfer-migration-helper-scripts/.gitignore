@@ -1,9 +1,2 @@
 .idea
 compare_2_jpd_configs_for_drift/output/compare_2_jpd_configs_v2.py
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/test.txt
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/create_local_errors.log
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/create_local_success.log
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/sync_environments_errors.log
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/sync_environments_success.log
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/sync_propertysets_errors.log
-jf-transfer-migration-helper-scripts/create-repos/repo_sync/sync_propertysets_success.log

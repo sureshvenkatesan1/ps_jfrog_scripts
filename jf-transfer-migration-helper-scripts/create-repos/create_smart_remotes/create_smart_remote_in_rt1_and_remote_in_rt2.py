@@ -142,7 +142,7 @@ def create_smart_remote_in_rt1(source_url, source_token, repo_name, username, pa
         "url": f"{dest_url}/artifactory/{repo_name}",
         "username": username,
         "password": password,
-        "repositoryLayoutRef": original_config.get("repositoryLayoutRef", "maven-2-default")
+        "repoLayoutRef": original_config.get("repoLayoutRef", "maven-2-default")
     }
 
     # Add mandatory field for NuGet repositories

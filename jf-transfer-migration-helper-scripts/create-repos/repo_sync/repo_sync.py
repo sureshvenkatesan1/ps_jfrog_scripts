@@ -113,12 +113,41 @@ class Artifactory:
         return l, r, f
 
     def print_remotes_with_password(self):
-        out_file = open("./remotes_with_password_{}.log".format(self.name), 'w')
-        for repo in self.repository_configurations["REMOTE"]:
-            if repo["password"] != "":
+        """Print remote repositories that have passwords configured"""
+        out_file = open(f"./remotes_with_password_{self.name}.log", 'w')
+        for repo in self.repository_configurations.get("REMOTE", []):
+            if repo.get("password", ""):
                 print(repo["key"])
                 out_file.write(repo["key"])
                 out_file.write('\n')
+        out_file.close()
+
+    def print_missing_remotes_with_password(self, target_artifactory):
+        """Print remote repositories with passwords that are missing in target"""
+        print(f"\nChecking for remote repositories with passwords in {self.name} that are missing in {target_artifactory.name}")
+        out_file = open(f"./missing_remotes_with_password_{self.name}.log", 'w')
+        
+        # Get set of remote repo keys in target
+        target_remote_keys = set(target_artifactory.remote_configs.keys())
+        missing_repos = []
+        
+        for repo in self.repository_configurations.get("REMOTE", []):
+            if repo.get("password", "") and repo["key"] not in target_remote_keys:
+                missing_repos.append(repo["key"])
+                print(repo["key"])
+                out_file.write(repo["key"])
+                out_file.write('\n')
+        
+        if missing_repos:
+            print("\nMissing repositories with passwords (semicolon-separated):")
+            missing_repos_str = ";".join(missing_repos)
+            print(missing_repos_str)
+            out_file.write("\nMissing repositories with passwords (semicolon-separated):\n")
+            out_file.write(missing_repos_str)
+        else:
+            print("No remote repositories with passwords missing in target")
+        
+        out_file.close()
 
     def get_repository_configurations(self):
         repos = requests.get(self.url + "/artifactory/api/repositories/configurations", headers=self.headers, verify=False)
@@ -284,11 +313,19 @@ class Artifactory:
                 error_file.write(f"{repo} | {resp.status_code} - {resp.text}\n")
 
     def create_single_local_repository(self, repo_name, repo_config):
-        """Create a single local repository"""
+        """Create a single local repository with default values and Docker-specific settings"""
+        
         url = self.url + "/artifactory/api/repositories/" + repo_name
         repo_config["rclass"] = "local"
+        # Set default values if not provided
+        repo_config["packageType"] = repo_config.get("packageType", "maven")
+        #repo_config["repositoryLayoutRef"] = repo_config.get("repositoryLayoutRef", "maven-2-default")
+        repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
+        repo_config["dockerApiVersion"] = "V2"
+
         debug_request('PUT', url, headers=self.headers, json_data=repo_config, debug=self.debug)
         resp = requests.put(url, json=repo_config, headers=self.headers, verify=False)
+
         return repo_name, resp
 
     def create_single_remote_repository(self, repo_name, repo_config):
@@ -296,7 +333,11 @@ class Artifactory:
         headers = {'content-type': 'application/json',}
         repo_config["rclass"] = "remote"
         repo_config["password"] = ""  # Clear password for safety
+        # Set default values if not provided
+        repo_config["packageType"] = repo_config.get("packageType", "maven")
+        repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
         repo_config["dockerApiVersion"] = "V2"
+
         resp = requests.put(self.url + "/artifactory/api/repositories/" + repo_name, 
                           json=repo_config, headers=self.headers, debug=self.debug)
         return repo_name, resp
@@ -305,6 +346,9 @@ class Artifactory:
         """Create a single virtual repository"""
         headers = {'content-type': 'application/json',}
         repo_config["rclass"] = "virtual"
+        repo_config["packageType"] = repo_config.get("packageType", "maven")
+        repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
+        repo_config["dockerApiVersion"] = "V2"        
         resp = requests.put(self.url + "/artifactory/api/repositories/" + repo_name, 
                           json=repo_config, headers=self.headers, debug=self.debug)
         return repo_name, resp
@@ -393,6 +437,71 @@ class Artifactory:
                 except Exception as e:
                     print(f"Error deleting repository {repo}: {str(e)}")
                     error_file.write(f"{repo} | Exception: {str(e)}\n")
+
+    def get_project_details(self):
+        """Get detailed list of projects"""
+        url = f"{self.url}/access/api/v1/projects"
+        debug_request('GET', url, headers=self.headers, debug=self.debug)
+        resp = requests.get(url, headers=self.headers, verify=False)
+        if resp.status_code != 200:
+            print(f"Error getting projects: {resp.status_code} - {resp.text}")
+            return []
+        return resp.json()
+
+    def print_missing_projects(self, target_artifactory):
+        """Print projects that exist in this instance but not in target and projects with different configurations"""
+        print(f"\nChecking for projects in {self.name} that are missing in {target_artifactory.name}")
+        out_file = open(f"./missing_projects_{self.name}.log", 'w')
+        
+        source_projects = {p["project_key"]: p for p in self.get_project_details()}
+        target_projects = {p["project_key"]: p for p in target_artifactory.get_project_details()}
+        
+        missing_projects = []
+        different_projects = []
+        
+        # Check for missing and different projects
+        for project_key, source_project in source_projects.items():
+            if project_key not in target_projects:
+                missing_projects.append(project_key)
+                print(f"\nProject missing in target: {project_key}")
+                out_file.write(f"\nProject missing in target: {project_key}\n")
+                out_file.write(f"Configuration: {json.dumps(source_project, indent=2)}\n")
+            else:
+                # Compare project configurations
+                target_project = target_projects[project_key]
+                if self._projects_are_different(source_project, target_project):
+                    different_projects.append(project_key)
+                    print(f"\nProject with different configuration: {project_key}")
+                    out_file.write(f"\nProject with different configuration: {project_key}\n")
+                    out_file.write("Source configuration:\n")
+                    out_file.write(f"{json.dumps(source_project, indent=2)}\n")
+                    out_file.write("Target configuration:\n")
+                    out_file.write(f"{json.dumps(target_project, indent=2)}\n")
+        
+        # Print summary
+        if missing_projects:
+            print("\nMissing projects (semicolon-separated):")
+            missing_projects_str = ";".join(missing_projects)
+            print(missing_projects_str)
+            out_file.write("\nMissing projects (semicolon-separated):\n")
+            out_file.write(missing_projects_str + "\n")
+        
+        if different_projects:
+            print("\nProjects with different configurations (semicolon-separated):")
+            different_projects_str = ";".join(different_projects)
+            print(different_projects_str)
+            out_file.write("\nProjects with different configurations (semicolon-separated):\n")
+            out_file.write(different_projects_str + "\n")
+        
+        if not missing_projects and not different_projects:
+            print("No projects missing or different in target")
+        
+        out_file.close()
+
+    def _projects_are_different(self, project1, project2):
+        """Compare two project configurations dynamically"""
+        # Compare the entire project configurations
+        return project1 != project2
 
 class FederationHelper:
     def __init__(self, rt1, rt2):
@@ -568,6 +677,11 @@ class FederationHelper:
                     repo["members"] = []
                 headers = {'content-type': 'application/json',}
                 repo["rclass"] = "federated"
+                
+                repo["packageType"] = repo.get("packageType", "maven")
+                repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
+                repo["dockerApiVersion"] = "V2" 
+
                 resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
                                     headers=self.headers, debug=self.debug)
                 if resp.status_code != 201:
@@ -586,6 +700,11 @@ class FederationHelper:
                 else:
                     repo["members"] = []
                 repo["rclass"] = "federated"
+
+                repo["packageType"] = repo.get("packageType", "maven")
+                repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
+                repo["dockerApiVersion"] = "V2" 
+
                 headers = {'content-type': 'application/json',}
 
                 resp = requests.put(self.rt1.url + "/artifactory/api/repositories/" + repo_name, json=repo,
@@ -596,32 +715,70 @@ class FederationHelper:
                 else:
                     print("success")
 
-    def create_missing_federated_on_target(self, include_target=True):
+    def create_missing_federated_on_target(self, max_workers=4):
+        """Create missing federated repositories on target in parallel"""
+        print("Creating missing federated repositories for", self.rt2.name)
         error_file = open('./create_federated_errors.log', 'w')
         success_file = open('./create_federated_success.log', 'w')
-        print("Creating missing repositories for", self.rt2.name)
-        for repo_name in self.rt1.federated_configs.keys():
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.federated_configs.keys():
-                repo = self.rt1.federated_configs[repo_name]
-                if include_target:
-                    repo["members"] = [{"url": self.rt1.url + "/" + repo_name, "enabled": "true"}]
-                else:
-                    repo["members"] = []
-                headers = {'content-type': 'application/json',}
-                repo["rclass"] = "federated"
-                resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
-                                    headers=self.headers, debug=self.debug)
-                if resp.status_code != 200:
-                    print("Non-200 response:", resp.status_code)
-                    print(resp.text)
-                    error_file.write(repo_name)
-                    error_file.write(" | ")
-                    error_file.write(resp.text)
-                    error_file.write('\n')
-                else:
-                    print("Success for", repo_name)
-                    success_file.write(resp.text)
-                    success_file.write('\n')
+        
+        failed_repos = []
+        
+        def create_single_federated(repo_name, repo_config):
+            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.federated_configs:
+                return None
+                
+            repo = repo_config.copy()
+            repo["members"] = [{"url": f"{self.rt1.url}/artifactory/{repo_name}", "enabled": "true"}]
+            repo["rclass"] = "federated"
+            
+            # Set default values if not provided
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
+            repo["dockerApiVersion"] = "V2"
+            
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                json=repo,
+                headers=self.rt2.headers,
+                verify=False
+            )
+            return repo_name, resp
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(create_single_federated, repo_name, repo_config): repo_name
+                for repo_name, repo_config in self.rt1.federated_configs.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to create federated repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        else:
+                            success_msg = f"Successfully created federated repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
+                except Exception as e:
+                    repo_name = future_to_repo[future]
+                    print(f"Error processing repository {repo_name}: {str(e)}")
+                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    failed_repos.append(repo_name)
+        
+        if failed_repos:
+            failed_repos_str = ";".join(sorted(failed_repos))
+            print("\nFailed federated repositories (semicolon-separated):")
+            print(failed_repos_str)
+            error_file.write("\nFailed federated repositories (semicolon-separated):\n")
+            error_file.write(failed_repos_str)
+        
+        error_file.close()
+        success_file.close()
 
     def create_missing_remotes_on_target(self):
         print("Creating missing remote repositories for", self.rt2.name)
@@ -650,51 +807,73 @@ class FederationHelper:
                     success_file.write(resp.text)
                     success_file.write('\n')
 
-    def create_missing_virtual_on_target(self):
-
+    def create_missing_virtual_on_target(self, max_workers=4):
+        """Create missing virtual repositories on target in parallel"""
         print("Creating missing virtual repositories for", self.rt2.name)
-
-        mvr1, mvr2 = self.missing_virtual()
-        retry = []
         error_file = open('./create_virtual_errors.log', 'w')
         success_file = open('./create_virtual_success.log', 'w')
-
-        for repo in self.rt1.repository_configurations['VIRTUAL']:
+        
+        failed_repos = []
+        
+        def create_single_virtual(repo):
             repo_name = repo["key"]
-            if repo_name not in SYSTEM_REPOS and repo_name in mvr1:
-                #print(self.rt1.url + "/artifactory/api/repositories/" + repo_name)
-
-                repo = requests.get(self.rt1.url + "/artifactory/api/repositories/" + repo_name, headers=self.headers, debug=self.debug)
-                repo = repo.json()
-                headers = {'content-type': 'application/json', }
-                repo["rclass"] = "virtual"
-                resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
-                                    headers=self.headers, debug=self.debug)
-                if resp.status_code != 200:
-                    print("Adding {} to retry queue. Non-200 response: {}".format(repo_name, resp.status_code))
-                    print(resp.text)
-                    retry.append(repo)
-                else:
-                    print("Success for", repo_name)
-                    success_file.write(resp.text)
-                    success_file.write('\n')
-
-        for repo in retry:
-            repo_name = repo["key"]
-            print("Retrying repo", repo_name)
-            headers = {'content-type': 'application/json', }
-            resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
-                                headers=self.headers, debug=self.debug)
-            if resp.status_code != 200:
-                print("Failure on retry for {}. Non-200 response: {}".format(repo_name, resp.status_code))
-                error_file.write(repo_name)
-                error_file.write(" | ")
-                error_file.write(resp.text)
-                error_file.write('\n')
-            else:
-                print("Success on retry for", repo_name)
-                success_file.write(resp.text)
-                success_file.write('\n')
+            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.virtual_configs:
+                return None
+                
+            repo_config = requests.get(
+                f"{self.rt1.url}/artifactory/api/repositories/{repo_name}",
+                headers=self.rt1.headers,
+                verify=False
+            ).json()
+            
+            repo_config["rclass"] = "virtual"
+            repo_config["packageType"] = repo_config.get("packageType", "maven")
+            repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
+            repo_config["dockerApiVersion"] = "V2"
+            
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                json=repo_config,
+                headers=self.rt2.headers,
+                verify=False
+            )
+            return repo_name, resp
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(create_single_virtual, repo): repo["key"]
+                for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to create virtual repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        else:
+                            success_msg = f"Successfully created virtual repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
+                except Exception as e:
+                    repo_name = future_to_repo[future]
+                    print(f"Error processing repository {repo_name}: {str(e)}")
+                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    failed_repos.append(repo_name)
+        
+        if failed_repos:
+            failed_repos_str = ";".join(sorted(failed_repos))
+            print("\nFailed virtual repositories (semicolon-separated):")
+            print(failed_repos_str)
+            error_file.write("\nFailed virtual repositories (semicolon-separated):\n")
+            error_file.write(failed_repos_str)
+        
+        error_file.close()
+        success_file.close()
 
     def update_federated_members(self, repo_filter=False):
         print("Updating member repositories for", self.rt1.name)
@@ -789,46 +968,73 @@ class FederationHelper:
             if repo_name not in SYSTEM_REPOS:
                 self.federate_one(repo_name)
 
-    def update_virtual_members(self, dry=False):
-        for repo in self.rt1.repository_configurations['VIRTUAL']:
+    def update_virtual_members(self, dry=False, max_workers=4):
+        """Update virtual repository configurations in target in parallel"""
+        print("\nChecking virtual repository configurations...")
+        error_file = open('./update_virtual_errors.log', 'w')
+        success_file = open('./update_virtual_success.log', 'w')
+        
+        def update_single_virtual(repo):
             repo_name = repo["key"]
             repo_refs = repo["repositories"]
-
-            resp = requests.get(self.rt2.url + "/artifactory/api/repositories/" + repo_name, headers=self.headers, debug=self.debug)
-
+            
+            resp = requests.get(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                headers=self.rt2.headers,
+                verify=False
+            )
+            
             if resp.status_code >= 400:
-                print("Repo {} does not exist in target.".format(repo_name))
-                continue
-
+                print(f"Repository {repo_name} does not exist in target.")
+                return None
+                
             target_repo = resp.json()
-            try:
-                target_repo_refs = target_repo["repositories"]
-            except Exception as e:
-                print(e)
-                print(target_repo)
-                sys.exit()
-
+            target_repo_refs = target_repo.get("repositories", [])
+            
             repo_refs = sorted(repo_refs)
             target_repo_refs = sorted(target_repo_refs)
-
+            
             if repo_refs != target_repo_refs:
-                print("Found non equal members for repo {}".format(repo_name))
-                print(repo_refs)
-                print(target_repo_refs)
-
+                print(f"\nFound different members for repo {repo_name}")
+                print("Source members:", repo_refs)
+                print("Target members:", target_repo_refs)
+                
                 if not dry:
-                    headers = {'content-type': 'application/json', }
                     repo["rclass"] = "virtual"
-                    resp = requests.post(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
-                                        headers=self.headers, debug=self.debug)
-                    if resp.status_code != 200:
-                        print("Failed to update virtual repository {}. Non-200 response: {}".format(repo_name,
-                                                                                                    resp.status_code))
-                        print(resp.text)
-                    else:
-                        print("Success updating members for", repo_name)
-            else:
-                print("Members the same for repo {}".format(repo_name))
+                    resp = requests.post(
+                        f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                        json=repo,
+                        headers=self.rt2.headers,
+                        verify=False
+                    )
+                    return repo_name, resp
+            return None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_virtual, repo): repo["key"]
+                for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to update virtual repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                        else:
+                            success_msg = f"Successfully updated virtual repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
+                except Exception as e:
+                    print(f"Error processing repository {future_to_repo[future]}: {str(e)}")
+                    error_file.write(f"{future_to_repo[future]} | Exception: {str(e)}\n")
+        
+        error_file.close()
+        success_file.close()
 
     # Xray stuff
     def update_all_xray_data(self):
@@ -1201,33 +1407,60 @@ class FederationHelper:
         error_file = open('./create_remote_errors.log', 'w')
         success_file = open('./create_remote_success.log', 'w')
         
-        repos_to_create = [
-            (repo_name, self.rt1.remote_configs[repo_name])
-            for repo_name in self.rt1.remote_configs.keys()
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.remote_configs.keys()
-        ]
+        failed_repos = []
         
-        print(f"Found {len(repos_to_create)} repositories to create")
+        def create_single_remote(repo_name, repo_config):
+            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.remote_configs:
+                return None
+                
+            repo = repo_config.copy()
+            repo["rclass"] = "remote"
+            repo["password"] = ""  # Clear password for safety
+            repo["dockerApiVersion"] = "V2"
+            
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                json=repo,
+                headers=self.rt2.headers,
+                verify=False
+            )
+            return repo_name, resp
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
-                executor.submit(self.rt2.create_single_remote_repository, repo_name, repo_config): repo_name
-                for repo_name, repo_config in repos_to_create
+                executor.submit(create_single_remote, repo_name, repo_config): repo_name
+                for repo_name, repo_config in self.rt1.remote_configs.items()
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
-                repo_name = future_to_repo[future]
                 try:
-                    repo_name, resp = future.result()
-                    if resp.status_code == 200:
-                        print(f"Successfully created repository: {repo_name}")
-                        success_file.write(f"Created {repo_name}\n")
-                    else:
-                        print(f"Failed to create repository {repo_name}: {resp.status_code} - {resp.text}")
-                        error_file.write(f"{repo_name} | {resp.status_code} - {resp.text}\n")
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to create remote repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        else:
+                            success_msg = f"Successfully created remote repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
                 except Exception as e:
-                    print(f"Error creating repository {repo_name}: {str(e)}")
+                    repo_name = future_to_repo[future]
+                    print(f"Error processing repository {repo_name}: {str(e)}")
                     error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    failed_repos.append(repo_name)
+        
+        if failed_repos:
+            failed_repos_str = ";".join(sorted(failed_repos))
+            print("\nFailed remote repositories (semicolon-separated):")
+            print(failed_repos_str)
+            error_file.write("\nFailed remote repositories (semicolon-separated):\n")
+            error_file.write(failed_repos_str)
+        
+        error_file.close()
+        success_file.close()
 
     def get_projects(self):
         """Get list of projects from source"""
@@ -1435,6 +1668,258 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
+    def create_project(self, project_data):
+        """Create project in target"""
+        url = f"{self.rt2.url}/access/api/v1/projects"
+        debug_request('POST', url, headers=self.rt2.headers, json_data=project_data, debug=self.rt2.debug)
+        resp = requests.post(url, headers=self.rt2.headers, json=project_data, verify=False)
+        return resp.status_code == 201, resp
+
+    def update_project(self, project_key, project_data):
+        """Update existing project in target"""
+        url = f"{self.rt2.url}/access/api/v1/projects/{project_key}"
+        debug_request('PUT', url, headers=self.rt2.headers, json_data=project_data, debug=self.rt2.debug)
+        resp = requests.put(url, headers=self.rt2.headers, json=project_data, verify=False)
+        return resp.status_code == 200, resp
+
+    def sync_projects(self):
+        """Sync all projects from source to target"""
+        print("\nSyncing projects...")
+        error_file = open('./sync_projects_errors.log', 'w')
+        success_file = open('./sync_projects_success.log', 'w')
+        
+        # Get projects from both instances
+        source_projects = {p["project_key"]: p for p in self.rt1.get_project_details()}
+        target_projects = {p["project_key"]: p for p in self.rt2.get_project_details()}
+        
+        # Track failed operations
+        failed_projects = []
+        
+        # Process each source project
+        for project_key, source_project in source_projects.items():
+            if project_key not in target_projects:
+                # Create missing project
+                print(f"Creating project: {project_key}")
+                success, resp = self.create_project(source_project)
+                if success:
+                    success_msg = f"Created project: {project_key}"
+                    print(success_msg)
+                    success_file.write(f"{success_msg}\n")
+                else:
+                    error_msg = f"Failed to create project {project_key}: {resp.status_code} - {resp.text}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    failed_projects.append(project_key)
+            else:
+                # Check if project needs updating
+                target_project = target_projects[project_key]
+                if source_project != target_project:
+                    print(f"Updating project: {project_key}")
+                    success, resp = self.update_project(project_key, source_project)
+                    if success:
+                        success_msg = f"Updated project: {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+                    else:
+                        error_msg = f"Failed to update project {project_key}: {resp.status_code} - {resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        failed_projects.append(project_key)
+        
+        # Print summary of failed operations
+        if failed_projects:
+            failed_projects_str = ";".join(failed_projects)
+            print("\nFailed projects (semicolon-separated):")
+            print(failed_projects_str)
+            error_file.write("\nFailed projects (semicolon-separated):\n")
+            error_file.write(failed_projects_str)
+        
+        error_file.close()
+        success_file.close()
+
+    def update_local_members(self, dry=False, max_workers=4):
+        """Update local repository configurations in target in parallel"""
+        print("\nChecking local repository configurations...")
+        error_file = open('./update_local_errors.log', 'w')
+        success_file = open('./update_local_success.log', 'w')
+        
+        def update_single_local(repo_name, source_config):
+            if repo_name in SYSTEM_REPOS:
+                return None
+                
+            if repo_name not in self.rt2.local_configs:
+                print(f"Repository {repo_name} does not exist in target.")
+                return None
+                
+            target_config = self.rt2.local_configs[repo_name]
+            
+            # Compare configurations
+            if source_config != target_config:
+                print(f"\nFound different configuration for repo {repo_name}")
+                print("Source config:", json.dumps(source_config, indent=2))
+                print("Target config:", json.dumps(target_config, indent=2))
+                
+                if not dry:
+                    source_config["rclass"] = "local"
+                    resp = requests.post(
+                        f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                        json=source_config,
+                        headers=self.rt2.headers,
+                        verify=False
+                    )
+                    return repo_name, resp
+            return None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_local, repo_name, source_config): repo_name
+                for repo_name, source_config in self.rt1.local_configs.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                result = future.result()
+                if result:
+                    repo_name, resp = result
+                    if resp.status_code != 200:
+                        error_msg = f"Failed to update local repository {repo_name}: {resp.status_code} - {resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                    else:
+                        success_msg = f"Successfully updated local repository: {repo_name}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+        
+        error_file.close()
+        success_file.close()
+
+    def update_remote_members(self, dry=False, max_workers=4):
+        """Update remote repository configurations in target in parallel"""
+        print("\nChecking remote repository configurations...")
+        error_file = open('./update_remote_errors.log', 'w')
+        success_file = open('./update_remote_success.log', 'w')
+        
+        def update_single_remote(repo_name, source_config):
+            if repo_name in SYSTEM_REPOS:
+                return None
+                
+            if repo_name not in self.rt2.remote_configs:
+                print(f"Repository {repo_name} does not exist in target.")
+                return None
+                
+            target_config = self.rt2.remote_configs[repo_name]
+            
+            # Remove password from comparison if it exists
+            source_config_compare = source_config.copy()
+            target_config_compare = target_config.copy()
+            source_config_compare.pop('password', None)
+            target_config_compare.pop('password', None)
+            
+            # Compare configurations
+            if source_config_compare != target_config_compare:
+                print(f"\nFound different configuration for repo {repo_name}")
+                print("Source config:", json.dumps(source_config_compare, indent=2))
+                print("Target config:", json.dumps(target_config_compare, indent=2))
+                
+                if not dry:
+                    source_config["rclass"] = "remote"
+                    source_config["password"] = ""  # Clear password for safety
+                    resp = requests.post(
+                        f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                        json=source_config,
+                        headers=self.rt2.headers,
+                        verify=False
+                    )
+                    return repo_name, resp
+            return None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_remote, repo_name, source_config): repo_name
+                for repo_name, source_config in self.rt1.remote_configs.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                result = future.result()
+                if result:
+                    repo_name, resp = result
+                    if resp.status_code != 200:
+                        error_msg = f"Failed to update remote repository {repo_name}: {resp.status_code} - {resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                    else:
+                        success_msg = f"Successfully updated remote repository: {repo_name}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+        
+        error_file.close()
+        success_file.close()
+
+    def update_federated_members(self, dry=False, max_workers=4):
+        """Update federated repository configurations in target in parallel"""
+        print("\nChecking federated repository configurations...")
+        error_file = open('./update_federated_errors.log', 'w')
+        success_file = open('./update_federated_success.log', 'w')
+        
+        def update_single_federated(repo_name, source_config):
+            if repo_name in SYSTEM_REPOS:
+                return None
+                
+            if repo_name not in self.rt2.federated_configs:
+                print(f"Repository {repo_name} does not exist in target.")
+                return None
+                
+            target_config = self.rt2.federated_configs[repo_name]
+            
+            # Compare configurations excluding members
+            source_config_compare = source_config.copy()
+            target_config_compare = target_config.copy()
+            source_config_compare.pop('members', None)
+            target_config_compare.pop('members', None)
+            
+            # Compare configurations
+            if source_config_compare != target_config_compare:
+                print(f"\nFound different configuration for repo {repo_name}")
+                print("Source config:", json.dumps(source_config_compare, indent=2))
+                print("Target config:", json.dumps(target_config_compare, indent=2))
+                
+                if not dry:
+                    source_config["rclass"] = "federated"
+                    # Update members to include both source and target
+                    source_config["members"] = [
+                        {"url": f"{self.rt1.url}/artifactory/{repo_name}", "enabled": "true"},
+                        {"url": f"{self.rt2.url}/artifactory/{repo_name}", "enabled": "true"}
+                    ]
+                    resp = requests.post(
+                        f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                        json=source_config,
+                        headers=self.rt2.headers,
+                        verify=False
+                    )
+                    return repo_name, resp
+            return None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_federated, repo_name, source_config): repo_name
+                for repo_name, source_config in self.rt1.federated_configs.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                result = future.result()
+                if result:
+                    repo_name, resp = result
+                    if resp.status_code != 200:
+                        error_msg = f"Failed to update federated repository {repo_name}: {resp.status_code} - {resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                    else:
+                        success_msg = f"Successfully updated federated repository: {repo_name}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+        
+        error_file.close()
+        success_file.close()
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Synchronize repositories and configurations between two Artifactory instances',
@@ -1482,20 +1967,29 @@ Examples:
             'remotes_with_password_source',
             'remotes_with_password_target',
             'refresh_storage_summary',
-            'create_missing_federated_on_target',
+            'sync_environments',
+            'sync_property_sets',
+            'sync_projects',
+            'list_missing_projects_source',
+            'list_missing_projects_target',
+            'create_missing_locals_on_target',
             'create_missing_remotes_on_target',
             'create_missing_virtual_on_target',
-            'create_missing_locals_on_target',
+            'create_missing_federated_on_target',
+            'update_local_members_dry',
+            'update_local_members',
+            'update_remote_members_dry',
+            'update_remote_members',
+            'update_federated_members_dry',
+            'update_federated_members'
             'update_virtual_members',
-            'update_virtual_members_dry',
+            'update_virtual_members_dry',                        
+            'delete_repos_from_file',
+            'delete_repos_by_type',            
             'xray_report',
             'sync_xray_policies',
             'sync_xray_watches',
-            'sync_xray_ignore_rules',
-            'delete_repos_from_file',
-            'delete_repos_by_type',
-            'sync_environments',
-            'sync_property_sets'
+            'sync_xray_ignore_rules'
         ],
         help='Command to execute'
     )
@@ -1564,7 +2058,7 @@ def main():
         helper.repo_report()
 
     elif args.command == "remotes_with_password_source":
-        source.print_remotes_with_password()
+        source.print_missing_remotes_with_password(target)
 
     elif args.command == "remotes_with_password_target":
         target.print_remotes_with_password()
@@ -1573,22 +2067,22 @@ def main():
         helper.refresh_storage_summary()
 
     elif args.command == "create_missing_federated_on_target":
-        helper.create_missing_federated_on_target()
+        helper.create_missing_federated_on_target(max_workers=args.max_workers)
 
     elif args.command == "create_missing_remotes_on_target":
         helper.create_missing_remotes_on_target_parallel(args.max_workers)
 
     elif args.command == "create_missing_virtual_on_target":
-        helper.create_missing_virtual_on_target()
+        helper.create_missing_virtual_on_target(max_workers=args.max_workers)
 
     elif args.command == "create_missing_locals_on_target":
         helper.create_missing_locals_on_target_parallel(args.max_workers)
 
     elif args.command == "update_virtual_members":
-        helper.update_virtual_members()
+        helper.update_virtual_members(dry=False, max_workers=args.max_workers)
 
     elif args.command == "update_virtual_members_dry":
-        helper.update_virtual_members(dry=True)
+        helper.update_virtual_members(dry=True, max_workers=args.max_workers)
 
     elif args.command == "xray_report":
         helper.report_watches_policies()
@@ -1619,6 +2113,33 @@ def main():
 
     elif args.command == "sync_property_sets":
         helper.sync_property_sets()
+
+    elif args.command == "sync_projects":
+        helper.sync_projects()
+
+    elif args.command == "list_missing_projects_source":
+        source.print_missing_projects(target)
+
+    elif args.command == "list_missing_projects_target":
+        target.print_missing_projects(source)
+
+    elif args.command == "update_local_members_dry":
+        helper.update_local_members(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_local_members":
+        helper.update_local_members(dry=False, max_workers=args.max_workers)
+    
+    elif args.command == "update_remote_members_dry":
+        helper.update_remote_members(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_remote_members":
+        helper.update_remote_members(dry=False, max_workers=args.max_workers)
+    
+    elif args.command == "update_federated_members_dry":
+        helper.update_federated_members(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_federated_members":
+        helper.update_federated_members(dry=False, max_workers=args.max_workers)
 
 if __name__ == '__main__':
     main()

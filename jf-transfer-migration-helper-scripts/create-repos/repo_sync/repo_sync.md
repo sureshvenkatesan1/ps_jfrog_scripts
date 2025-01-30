@@ -1,12 +1,13 @@
 # Repository Synchronization Tool
 
-This [repo_sync.py](repo_sync.py) script helps synchronize repositories between two Artifactory instances. It can compare repositories, create missing repositories, and manage federation configurations.
+This [repo_sync.py](repo_sync.py) script helps synchronize repositories and configurations between two Artifactory instances. It can compare repositories, create missing repositories, manage federation configurations, and sync various platform configurations.
 
 ## Features
 
 - Compare repositories between two Artifactory instances
 - Generate detailed reports of repository differences
 - Create missing repositories on target instance
+- Update existing repository configurations
 - Handle different repository types:
   - Local repositories
   - Remote repositories
@@ -16,7 +17,11 @@ This [repo_sync.py](repo_sync.py) script helps synchronize repositories between 
   - Policies
   - Watches
   - Ignore rules
-- Generate reports in separate log files for each repository type
+- Synchronize platform configurations:
+  - Projects
+  - Environments (Global and Project-specific)
+  - Property Sets
+- Generate reports in separate log files for each operation type
 
 ## Prerequisites
 
@@ -52,82 +57,119 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     report
 
-# Check source remotes with password
+# List remote repositories with passwords missing in target
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     remotes_with_password_source
 
-# Check target remotes with password
+# List all remote repositories with passwords in target
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     remotes_with_password_target
-```
 
-2. Repository Management:
-```bash
-# Create missing local repositories on target with 8 parallel workers
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_locals_on_target --max-workers 8
-
-# Create missing remote repositories on target with 6 parallel workers
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_remotes_on_target --max-workers 6
-
-# Create missing federated repositories on target
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_federated_on_target
-
-# Create missing virtual repositories on target
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_virtual_on_target
-```
-
-3. Repository Deletion:
-```bash
-# Delete repositories listed in a file with parallel processing (dry run)
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_from_file --repo-list-file repos_to_delete.txt --max-workers 8 --dry-run
-
-# Delete repositories listed in a file with parallel processing
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_from_file --repo-list-file repos_to_delete.txt --max-workers 8
-
-# Delete all repositories of a specific type with parallel processing (dry run)
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_by_type --repo-type local --max-workers 8 --dry-run
-
-# Delete all repositories of a specific type with parallel processing
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_by_type --repo-type remote --max-workers 8
-```
-
-4. Virtual Repository Updates:
-```bash
-# Update virtual repository members
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_virtual_members
-
-# Dry run of virtual repository member updates
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_virtual_members_dry
-```
-
-5. Xray Configuration Sync:
-```bash
 # Generate Xray configuration report
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     xray_report
+
+# List projects missing in target
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    list_missing_projects_source
+
+# List projects missing in source
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    list_missing_projects_target
+```
+
+2. Repository Management:
+```bash
+# Create missing local repositories on target with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    create_missing_locals_on_target --max-workers 8
+
+# Create missing remote repositories on target with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    create_missing_remotes_on_target --max-workers 8
+
+# Create missing federated repositories on target with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    create_missing_federated_on_target --max-workers 8
+
+# Create missing virtual repositories on target with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    create_missing_virtual_on_target --max-workers 8
+
+# Refresh storage summary
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    refresh_storage_summary
+```
+
+3. Repository Updates:
+```bash
+# Update local repository configurations (dry run) with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_local_members_dry --max-workers 8
+
+# Update local repository configurations with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_local_members --max-workers 8
+
+# Update remote repository configurations (dry run) with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_remote_members_dry --max-workers 8
+
+# Update remote repository configurations with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_remote_members --max-workers 8
+
+# Update federated repository configurations (dry run) with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_federated_members_dry --max-workers 8
+
+# Update federated repository configurations with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_federated_members --max-workers 8
+
+# Update virtual repository configurations (dry run) with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_virtual_members_dry --max-workers 8
+
+# Update virtual repository configurations with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    update_virtual_members --max-workers 8
+```
+
+4. Configuration Synchronization:
+```bash
+# Sync projects from source to target
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    sync_projects
+
+# Sync environments (global and project-specific)
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    sync_environments
+
+# Sync property sets
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    sync_property_sets
 
 # Sync Xray policies
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
@@ -145,67 +187,87 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
                     sync_xray_ignore_rules
 ```
 
+5. Repository Deletion:
+```bash
+# Delete repositories listed in a file with parallel processing (dry run)
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    delete_repos_from_file --repo-list-file repos_to_delete.txt --max-workers 8 --dry-run
+
+# Delete all repositories of a specific type with parallel processing
+python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
+                    --target-url https://target.artifactory --target-token TOKEN2 \
+                    delete_repos_by_type --repo-type remote --max-workers 8
+```
+
 ## Output Files
 
 The script generates several log files:
-- `missing_local_source.log`: Local repositories missing in source
-- `missing_local_target.log`: Local repositories missing in target
-- `missing_federated_source.log`: Federated repositories missing in source
-- `missing_federated_target.log`: Federated repositories missing in target
-- `missing_remote_source.log`: Remote repositories missing in source
-- `missing_remote_target.log`: Remote repositories missing in target
-- `missing_virtual_source.log`: Virtual repositories missing in source
-- `missing_virtual_target.log`: Virtual repositories missing in target
-- `create_local_errors.log`: Errors when creating local repositories
-- `create_local_success.log`: Successful local repository creations
-- `delete_repos_errors.log`: Failed repository deletions with error messages
-- `delete_repos_success.log`: Successfully deleted repositories
+- Repository Reports:
+  - `missing_local_source.log`: Local repositories missing in source
+  - `missing_local_target.log`: Local repositories missing in target
+  - `missing_federated_source.log`: Federated repositories missing in source
+  - `missing_federated_target.log`: Federated repositories missing in target
+  - `missing_remote_source.log`: Remote repositories missing in source
+  - `missing_remote_target.log`: Remote repositories missing in target
+  - `missing_virtual_source.log`: Virtual repositories missing in source
+  - `missing_virtual_target.log`: Virtual repositories missing in target
+  - `missing_remotes_with_password_source.log`: Remote repositories with passwords missing in target
+
+- Operation Logs:
+  - `create_local_errors.log`: Errors when creating local repositories
+  - `create_local_success.log`: Successful local repository creations
+  - `delete_repos_errors.log`: Failed repository deletions
+  - `delete_repos_success.log`: Successful repository deletions
+  - `sync_projects_errors.log`: Failed project operations
+  - `sync_projects_success.log`: Successful project operations
+  - `sync_environments_errors.log`: Failed environment operations
+  - `sync_environments_success.log`: Successful environment operations
+  - `sync_propertysets_errors.log`: Failed property set operations
+  - `sync_propertysets_success.log`: Successful property set operations
+  - `update_local_errors.log`: Failed local repository updates
+  - `update_local_success.log`: Successful local repository updates
+  - `update_remote_errors.log`: Failed remote repository updates
+  - `update_remote_success.log`: Successful remote repository updates
+  - `update_federated_errors.log`: Failed federated repository updates
+  - `update_federated_success.log`: Successful federated repository updates
 
 ## Additional Arguments
 
-In addition to the required arguments, the following optional arguments are available:
-
 - `--repo-list-file`: Path to a file containing repository keys to delete (one per line)
-- `--repo-type`: Type of repositories to delete. Valid values:
-  - `local`: Local repositories
-  - `remote`: Remote repositories
-  - `federated`: Federated repositories
-  - `virtual`: Virtual repositories
-  - `all`: All repository types
-- `--dry-run`: Preview operations without actually executing them
-- `--max-workers`: Maximum number of parallel workers for operations (default: 4)
-  - Used for both repository creation and deletion
-  - Adjust based on system capabilities and API rate limits
-  - Example values: 4 (default), 8 (medium), 16 (high)
+- `--repo-type`: Type of repositories to delete (`local`, `remote`, `federated`, `virtual`, `all`)
+- `--dry-run`: Preview operations without executing them
+- `--max-workers`: Maximum number of parallel workers (default: 4)
+- `--debug`: Enable debug output including curl commands
 
 ## System Repositories
 
-The script excludes the following system repositories from synchronization:
+The script excludes these system repositories from operations:
 - TOTAL
 - auto-trashcan
 - jfrog-support-bundle
 - jfrog-usage-logs
 
-## Error Handling
-
-- The script validates required parameters before execution
-- Provides detailed error messages for API failures
-- Logs all operations for troubleshooting
-- Includes dry-run options for safe testing
-
 ## Notes
 
-1. Federation Configuration:
-   - Ensures proper member configuration for federated repositories
-   - Triggers configuration sync after federation setup
-   - Triggers full sync for content synchronization
+1. Configuration Sync:
+   - Projects: Creates missing projects and updates existing ones if different
+   - Environments: Syncs both global and project-specific environments
+   - Property Sets: Creates missing property sets in target
 
-2. Repository Types:
-   - Handles all repository types (local, remote, virtual, federated)
-   - Maintains repository configurations and properties
-   - Preserves repository relationships in virtual repositories
+2. Repository Updates:
+   - Supports dry-run mode to preview changes
+   - Handles passwords securely for remote repositories
+   - Preserves existing configurations where appropriate
+   - Generates detailed logs of all operations
 
 3. Security:
    - Requires admin-level access token
-   - Handles sensitive information like remote repository credentials
+   - Handles sensitive information securely
    - Supports secure communication over HTTPS
+
+4. Error Handling:
+   - Validates required parameters
+   - Provides detailed error messages
+   - Logs all operations for troubleshooting
+   - Includes dry-run options for testing

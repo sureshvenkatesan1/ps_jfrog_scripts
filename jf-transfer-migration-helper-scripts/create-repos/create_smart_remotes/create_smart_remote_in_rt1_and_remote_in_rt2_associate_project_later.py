@@ -160,7 +160,8 @@ def create_smart_remote_in_rt1(source_url, source_token, repo_name, username, pa
     original_config["username"] =  username
     original_config["password"] =  password
     original_config["packageType"] =  original_config.get("packageType", "maven")
-    original_config["repositoryLayoutRef"] =  original_config.get("repositoryLayoutRef", "maven-2-default")
+    #original_config["repositoryLayoutRef"] =  original_config.get("repositoryLayoutRef", "maven-2-default")
+    original_config["repoLayoutRef"] =  original_config.get("repoLayoutRef", "maven-2-default")
     original_config["curated"] =  False
     original_config["sendContext"] = True
     original_config["passThrough"] =  False

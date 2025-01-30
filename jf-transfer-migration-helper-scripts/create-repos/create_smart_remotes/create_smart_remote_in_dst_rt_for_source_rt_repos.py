@@ -63,7 +63,7 @@ def create_smart_remote_repo(repo_config, source_url, dest_url, dest_token):
         "rclass": "remote",
         "packageType": repo_config.get("packageType", "maven"),  # default to Maven if not specified
         "url": url,  # Use the source URL here without "smart" suffix
-        "repositoryLayoutRef": repo_config.get("repositoryLayoutRef", "maven-2-default"),
+        "repoLayoutRef": repo_config.get("repoLayoutRef", "maven-2-default"),
         "key": f"{repo_key}-smart"  # Add the "smart" suffix to the key
     }
 
