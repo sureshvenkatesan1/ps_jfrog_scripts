@@ -723,10 +723,16 @@ class FederationHelper:
         
         failed_repos = []
         
+        # Get list of repos to create
+        repos_to_create = {
+            repo_name: repo_config 
+            for repo_name, repo_config in self.rt1.federated_configs.items()
+            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.federated_configs
+        }
+        
+        print(f"Found {len(repos_to_create)} federated repositories to create")
+        
         def create_single_federated(repo_name, repo_config):
-            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.federated_configs:
-                return None
-                
             repo = repo_config.copy()
             repo["members"] = [{"url": f"{self.rt1.url}/artifactory/{repo_name}", "enabled": "true"}]
             repo["rclass"] = "federated"
@@ -747,7 +753,7 @@ class FederationHelper:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
                 executor.submit(create_single_federated, repo_name, repo_config): repo_name
-                for repo_name, repo_config in self.rt1.federated_configs.items()
+                for repo_name, repo_config in repos_to_create.items()
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
@@ -815,11 +821,16 @@ class FederationHelper:
         
         failed_repos = []
         
+        # Get list of repos to create
+        repos_to_create = [
+            repo for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
+            if repo["key"] not in SYSTEM_REPOS and repo["key"] not in self.rt2.virtual_configs
+        ]
+        
+        print(f"Found {len(repos_to_create)} virtual repositories to create")
+        
         def create_single_virtual(repo):
             repo_name = repo["key"]
-            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.virtual_configs:
-                return None
-                
             repo_config = requests.get(
                 f"{self.rt1.url}/artifactory/api/repositories/{repo_name}",
                 headers=self.rt1.headers,
@@ -842,7 +853,7 @@ class FederationHelper:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
                 executor.submit(create_single_virtual, repo): repo["key"]
-                for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
+                for repo in repos_to_create
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
@@ -968,7 +979,7 @@ class FederationHelper:
             if repo_name not in SYSTEM_REPOS:
                 self.federate_one(repo_name)
 
-    def update_virtual_members(self, dry=False, max_workers=4):
+    def update_virtuals_on_target(self, dry=False, max_workers=4):
         """Update virtual repository configurations in target in parallel"""
         print("\nChecking virtual repository configurations...")
         error_file = open('./update_virtual_errors.log', 'w')
@@ -1409,10 +1420,16 @@ class FederationHelper:
         
         failed_repos = []
         
+        # Get list of repos to create
+        repos_to_create = {
+            repo_name: repo_config 
+            for repo_name, repo_config in self.rt1.remote_configs.items()
+            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.remote_configs
+        }
+        
+        print(f"Found {len(repos_to_create)} remote repositories to create")
+        
         def create_single_remote(repo_name, repo_config):
-            if repo_name in SYSTEM_REPOS or repo_name in self.rt2.remote_configs:
-                return None
-                
             repo = repo_config.copy()
             repo["rclass"] = "remote"
             repo["password"] = ""  # Clear password for safety
@@ -1429,7 +1446,7 @@ class FederationHelper:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
                 executor.submit(create_single_remote, repo_name, repo_config): repo_name
-                for repo_name, repo_config in self.rt1.remote_configs.items()
+                for repo_name, repo_config in repos_to_create.items()
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
@@ -1737,7 +1754,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_local_members(self, dry=False, max_workers=4):
+    def update_locals_on_target(self, dry=False, max_workers=4):
         """Update local repository configurations in target in parallel"""
         print("\nChecking local repository configurations...")
         error_file = open('./update_local_errors.log', 'w')
@@ -1792,7 +1809,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_remote_members(self, dry=False, max_workers=4):
+    def update_remotes_on_target(self, dry=False, max_workers=4):
         """Update remote repository configurations in target in parallel"""
         print("\nChecking remote repository configurations...")
         error_file = open('./update_remote_errors.log', 'w')
@@ -1854,7 +1871,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_federated_members(self, dry=False, max_workers=4):
+    def update_federated_repos_on_target(self, dry=False, max_workers=4):
         """Update federated repository configurations in target in parallel"""
         print("\nChecking federated repository configurations...")
         error_file = open('./update_federated_errors.log', 'w')
@@ -1976,14 +1993,14 @@ Examples:
             'create_missing_remotes_on_target',
             'create_missing_virtual_on_target',
             'create_missing_federated_on_target',
-            'update_local_members_dry',
-            'update_local_members',
-            'update_remote_members_dry',
-            'update_remote_members',
-            'update_federated_members_dry',
-            'update_federated_members'
-            'update_virtual_members',
-            'update_virtual_members_dry',                        
+            'update_locals_on_target_dry',
+            'update_locals_on_target',
+            'update_remotes_on_target_dry',
+            'update_remotes_on_target',
+            'update_federated_repos_on_target_dry',
+            'update_federated_repos_on_target'
+            'update_virtuals_on_target',
+            'update_virtuals_on_target_dry',                        
             'delete_repos_from_file',
             'delete_repos_by_type',            
             'xray_report',
@@ -2066,6 +2083,15 @@ def main():
     elif args.command == "refresh_storage_summary":
         helper.refresh_storage_summary()
 
+    elif args.command == "sync_environments":
+        helper.sync_environments()
+
+    elif args.command == "sync_property_sets":
+        helper.sync_property_sets()
+
+    elif args.command == "sync_projects":
+        helper.sync_projects()
+
     elif args.command == "create_missing_federated_on_target":
         helper.create_missing_federated_on_target(max_workers=args.max_workers)
 
@@ -2078,23 +2104,35 @@ def main():
     elif args.command == "create_missing_locals_on_target":
         helper.create_missing_locals_on_target_parallel(args.max_workers)
 
-    elif args.command == "update_virtual_members":
-        helper.update_virtual_members(dry=False, max_workers=args.max_workers)
+    elif args.command == "list_missing_projects_source":
+        source.print_missing_projects(target)
 
-    elif args.command == "update_virtual_members_dry":
-        helper.update_virtual_members(dry=True, max_workers=args.max_workers)
+    elif args.command == "list_missing_projects_target":
+        target.print_missing_projects(source)
 
-    elif args.command == "xray_report":
-        helper.report_watches_policies()
+    elif args.command == "update_locals_on_target_dry":
+        helper.update_locals_on_target(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_locals_on_target":
+        helper.update_locals_on_target(dry=False, max_workers=args.max_workers)
+    
+    elif args.command == "update_remotes_on_target_dry":
+        helper.update_remotes_on_target(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_remotes_on_target":
+        helper.update_remotes_on_target(dry=False, max_workers=args.max_workers)
+    
+    elif args.command == "update_federated_repos_on_target_dry":
+        helper.update_federated_repos_on_target(dry=True, max_workers=args.max_workers)
+    
+    elif args.command == "update_federated_repos_on_target":
+        helper.update_federated_repos_on_target(dry=False, max_workers=args.max_workers)
 
-    elif args.command == "sync_xray_policies":
-        helper.create_missing_and_update_policies()
+    elif args.command == "update_virtuals_on_target":
+        helper.update_virtuals_on_target(dry=False, max_workers=args.max_workers)
 
-    elif args.command == "sync_xray_watches":
-        helper.create_missing_and_update_watches()
-
-    elif args.command == "sync_xray_ignore_rules":
-        helper.create_missing_and_update_ignore_rules()
+    elif args.command == "update_virtuals_on_target_dry":
+        helper.update_virtuals_on_target(dry=True, max_workers=args.max_workers)
 
     elif args.command == "delete_repos_from_file":
         if not args.repo_list_file:
@@ -2108,38 +2146,19 @@ def main():
             sys.exit(1)
         target.delete_repositories_by_type_parallel(args.repo_type, args.max_workers, args.dry_run)
 
-    elif args.command == "sync_environments":
-        helper.sync_environments()
+    elif args.command == "xray_report":
+        helper.report_watches_policies()
 
-    elif args.command == "sync_property_sets":
-        helper.sync_property_sets()
+    elif args.command == "sync_xray_policies":
+        helper.create_missing_and_update_policies()
 
-    elif args.command == "sync_projects":
-        helper.sync_projects()
+    elif args.command == "sync_xray_watches":
+        helper.create_missing_and_update_watches()
 
-    elif args.command == "list_missing_projects_source":
-        source.print_missing_projects(target)
+    elif args.command == "sync_xray_ignore_rules":
+        helper.create_missing_and_update_ignore_rules()
 
-    elif args.command == "list_missing_projects_target":
-        target.print_missing_projects(source)
 
-    elif args.command == "update_local_members_dry":
-        helper.update_local_members(dry=True, max_workers=args.max_workers)
-    
-    elif args.command == "update_local_members":
-        helper.update_local_members(dry=False, max_workers=args.max_workers)
-    
-    elif args.command == "update_remote_members_dry":
-        helper.update_remote_members(dry=True, max_workers=args.max_workers)
-    
-    elif args.command == "update_remote_members":
-        helper.update_remote_members(dry=False, max_workers=args.max_workers)
-    
-    elif args.command == "update_federated_members_dry":
-        helper.update_federated_members(dry=True, max_workers=args.max_workers)
-    
-    elif args.command == "update_federated_members":
-        helper.update_federated_members(dry=False, max_workers=args.max_workers)
 
 if __name__ == '__main__':
     main()

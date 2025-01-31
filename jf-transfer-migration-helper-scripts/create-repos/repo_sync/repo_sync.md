@@ -116,42 +116,42 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
 # Update local repository configurations (dry run) with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_local_members_dry --max-workers 8
+                    update_locals_on_target_dry --max-workers 8
 
 # Update local repository configurations with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_local_members --max-workers 8
+                    update_locals_on_target --max-workers 8
 
 # Update remote repository configurations (dry run) with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_remote_members_dry --max-workers 8
+                    update_remotes_on_target_dry --max-workers 8
 
 # Update remote repository configurations with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_remote_members --max-workers 8
+                    update_remotes_on_target --max-workers 8
 
 # Update federated repository configurations (dry run) with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_federated_members_dry --max-workers 8
+                    update_federated_repos_on_target_dry --max-workers 8
 
 # Update federated repository configurations with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_federated_members --max-workers 8
+                    update_federated_repos_on_target --max-workers 8
 
 # Update virtual repository configurations (dry run) with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_virtual_members_dry --max-workers 8
+                    update_virtuals_on_target_dry --max-workers 8
 
 # Update virtual repository configurations with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    update_virtual_members --max-workers 8
+                    update_virtuals_on_target --max-workers 8
 ```
 
 4. Configuration Synchronization:
@@ -271,3 +271,96 @@ The script excludes these system repositories from operations:
    - Provides detailed error messages
    - Logs all operations for troubleshooting
    - Includes dry-run options for testing
+
+## Recommended Flow.
+
+1. Optional:  Find the projects that are missing in the target Artifactory.
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    list_missing_projects_target
+```
+Note: Additional --debug flag is available if you want to get the exact curl commands printed.
+
+2. Create any missing projects in the target Artifactory or update existing projects to reflect any changes, ensuring synchronization with the source Artifactory.
+```
+jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="" --include-projects="*"
+```
+or 
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    sync_projects
+```
+3. Create the missing Global and project environments in the target.
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    sync_environments
+```
+4. Create the missing Propertyset in the target.. 
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    sync_property_sets
+```
+5. Create missing local repositories on target
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_missing_locals_on_target --max-workers 4
+```
+If it fails with below message for some repos:
+
+   `"message" : "The repository key '<repokey>' should start with the project key and a dash: 'doc8-'\n"`
+
+then migrate those repo using the semicolon seperated list :
+```
+jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2" --include-projects=""
+```
+If some repos still fail the we can exclude them as below and investigate the cause:
+```
+jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2"  --exclude-repos "repo3;repo4" --include-projects=""
+```
+Some of the possible errors could be because the target Artifactory does not have the keypair 
+which some Debian or RPM type repos need.
+
+```
+{
+  "errors": [
+    {
+      "status": 400,
+      "message": "Unable to find KeyPair 'default-gpg-key'\n"
+    }
+  ]
+}
+```
+6. If  you want to update existing local repos to reflect any changes, ensuring synchronization with the source Artifactory you can run:
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    update_local_repos --max-workers 4
+```
+7. Similarly create or modify the remote repos in target using:
+Note: the remote repos in the target will be created with empty i.e "" passwword.
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_missing_remotes_on_target --max-workers 4
+```
+```
+python repo_sync.py --debug --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    update_remotes_on_target --max-workers 4
+```
+8. Similarly create or modify the virtual repos in target using:
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_missing_virtual_on_target --max-workers 4
+```
+```
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    update_virtuals_on_target --max-workers 4
+```
