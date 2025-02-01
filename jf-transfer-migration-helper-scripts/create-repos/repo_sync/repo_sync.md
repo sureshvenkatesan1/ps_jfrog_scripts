@@ -103,7 +103,7 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
 # Create missing virtual repositories on target with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_virtual_on_target --max-workers 8
+                    create_missing_virtuals_on_target --max-workers 8
 
 # Refresh storage summary
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
@@ -200,6 +200,29 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
                     delete_repos_by_type --repo-type remote --max-workers 8
 ```
 
+### Environment Management:
+```bash
+# Assign environment to a specific repository in source Artifactory
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    assign_environment --environment DEV --repo-name my-repo --artifactory source
+
+# Assign environment to all repositories of a specific type in source Artifactory
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    assign_environment --environment TEST --repo-type remote --artifactory source
+
+# Assign environment to all repositories in target Artifactory
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    assign_environment --environment DEV --artifactory target
+
+# Assign environment to specific repository type in target Artifactory
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    assign_environment --environment PROD --repo-type local --artifactory target
+```
+
 ## Output Files
 
 The script generates several log files:
@@ -239,6 +262,7 @@ The script generates several log files:
 - `--dry-run`: Preview operations without executing them
 - `--max-workers`: Maximum number of parallel workers (default: 4)
 - `--debug`: Enable debug output including curl commands
+- `--environment`: Environment to assign to created repositories (optional)
 
 ## System Repositories
 
@@ -275,7 +299,7 @@ The script excludes these system repositories from operations:
 ## Recommended Flow.
 
 1. Optional:  Find the projects that are missing in the target Artifactory.
-```
+```bash
 python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     list_missing_projects_target
@@ -305,10 +329,16 @@ python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     sync_property_sets
 ```
 5. Create missing local repositories on target
-```
-python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
-                    --target-url $TARGET --target-token $TOKEN2 \
+```bash
+# Create repositories without environment
+python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
+                    --target-url $TARGET --target-token TOKEN2 \
                     create_missing_locals_on_target --max-workers 4
+
+# Create repositories and assign them to an environment
+python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
+                    --target-url $TARGET --target-token TOKEN2 \
+                    create_missing_locals_on_target --max-workers 4 --environment DEV
 ```
 If it fails with below message for some repos:
 
@@ -318,6 +348,36 @@ then migrate those repo using the semicolon seperated list :
 ```
 jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2" --include-projects=""
 ```
+If you want to reassign the environments for the source repos before creating the missing
+repos in target use:
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_missing_remotes_on_target --max-workers 4 --environment DEV
+or
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_missing_locals_on_target --max-workers 4 --environment DEV
+```
+
+If you want to assign the environment to repos in source before running the "create_missing_*" command 
+then do:
+```
+Assign environment to one repo in Source:
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    assign_environment --environment DEV --repo-name sv-env-test --artifactory source
+```
+Or if the repo is already created in the target artifactory you can still
+Assign environment to one repo in Target:
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    assign_environment --environment DEV --repo-name sv-env-test --artifactory target
+```
+Note: All these steos are need to avoid rhe HTTP 400 error
+`"message" : "Cannot assign multiple environments to a repository\n"`
+
 If some repos still fail the we can exclude them as below and investigate the cause:
 ```
 jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2"  --exclude-repos "repo3;repo4" --include-projects=""
@@ -335,29 +395,59 @@ which some Debian or RPM type repos need.
   ]
 }
 ```
-6. If  you want to update existing local repos to reflect any changes, ensuring synchronization with the source Artifactory you can run:
+Try the "create_missing_*" command repeatedly or with `--max-workers 1` or with the abobe `jf rt transfer-config-merge` command if local repos fail with below error:
+
+```
+"message" : "HTTP response status 500:Failed to execute add project resource with error UNKNOWN: HTTP status code 500\ninvalid content-type: text/plain; charset=utf-8\nheaders: Metadata(:status=500,content-type=text/plain; charset=utf-8,date=Fri, 31 Jan 2025 16:50:14 GMT,strict-transport-security=max-age=31536000,content-length=21)\nDATA-----------------------------\nInternal Server Error\n"
+```
+6. If you have the groups or users then to Sync these  to project roles try:
+```
+jf proj-sync replicate --dry-run --include-projects "br" \
+  SOURCEID TARGETID addroles
+
+
+jf proj-sync replicate  --include-projects "br" \
+  SOURCEID TARGETID addroles
+```
+
+7. Sync the  members to role in target based on the source artifactory using:
+```
+jf proj-sync replicate --dry-run --include-projects "br" \
+ SOURCEID TARGETID addmembers
+
+jf proj-sync replicate --include-projects "br" \
+ SOURCEID TARGETID addmembers
+
+```
+8. If  you want to update existing local repos to reflect any changes, ensuring synchronization with the source Artifactory you can run:
 ```
 python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     update_local_repos --max-workers 4
 ```
-7. Similarly create or modify the remote repos in target using:
+9. Similarly create or modify the remote repos in target using:
 Note: the remote repos in the target will be created with empty i.e "" passwword.
-```
-python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
-                    --target-url $TARGET --target-token $TOKEN2 \
+```bash
+# Create repositories without environment
+python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
+                    --target-url $TARGET --target-token TOKEN2 \
                     create_missing_remotes_on_target --max-workers 4
+
+# Create repositories and assign them to an environment
+python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
+                    --target-url $TARGET --target-token TOKEN2 \
+                    create_missing_remotes_on_target --max-workers 4 --environment PROD
 ```
 ```
 python repo_sync.py --debug --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     update_remotes_on_target --max-workers 4
 ```
-8. Similarly create or modify the virtual repos in target using:
+10. Similarly create or modify the virtual repos in target using:
 ```
 python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
-                    create_missing_virtual_on_target --max-workers 4
+                    create_missing_virtuals_on_target --max-workers 4
 ```
 ```
 python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \

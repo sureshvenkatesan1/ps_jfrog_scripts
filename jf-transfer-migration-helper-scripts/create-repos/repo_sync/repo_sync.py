@@ -715,7 +715,7 @@ class FederationHelper:
                 else:
                     print("success")
 
-    def create_missing_federated_on_target(self, max_workers=4):
+    def create_missing_federated_on_target(self, max_workers=4, environment=None):
         """Create missing federated repositories on target in parallel"""
         print("Creating missing federated repositories for", self.rt2.name)
         error_file = open('./create_federated_errors.log', 'w')
@@ -741,6 +741,10 @@ class FederationHelper:
             repo["packageType"] = repo.get("packageType", "maven")
             repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
             repo["dockerApiVersion"] = "V2"
+            
+            # Set environment if provided
+            if environment:
+                repo["environments"] = [environment]
             
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
@@ -813,7 +817,7 @@ class FederationHelper:
                     success_file.write(resp.text)
                     success_file.write('\n')
 
-    def create_missing_virtual_on_target(self, max_workers=4):
+    def create_missing_virtuals_on_target(self, max_workers=4, environment=None):
         """Create missing virtual repositories on target in parallel"""
         print("Creating missing virtual repositories for", self.rt2.name)
         error_file = open('./create_virtual_errors.log', 'w')
@@ -841,6 +845,10 @@ class FederationHelper:
             repo_config["packageType"] = repo_config.get("packageType", "maven")
             repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
             repo_config["dockerApiVersion"] = "V2"
+            
+            # Set environment if provided
+            if environment:
+                repo_config["environments"] = [environment]
             
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
@@ -1367,52 +1375,77 @@ class FederationHelper:
             else:
                 print("Error for Ignore Rule", rule_id, "unexpected status code", rt2_rule.status_code)
 
-    def create_missing_locals_on_target_parallel(self, max_workers=4):
+    def create_missing_locals_on_target_parallel(self, max_workers=4, environment=None):
         """Create missing local repositories in parallel"""
         print("Creating missing local repositories for", self.rt2.name)
         error_file = open('./create_local_errors.log', 'w')
         success_file = open('./create_local_success.log', 'w')
-        failed_repos = []  # List to collect failed repos
         
-        repos_to_create = [
-            (repo_name, self.rt1.local_configs[repo_name])
-            for repo_name in self.rt1.local_configs.keys()
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.local_configs.keys()
-        ]
+        failed_repos = []
         
-        print(f"Found {len(repos_to_create)} repositories to create")
+        # Get list of repos to create
+        repos_to_create = {
+            repo_name: repo_config 
+            for repo_name, repo_config in self.rt1.local_configs.items()
+            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.local_configs
+        }
+        
+        print(f"Found {len(repos_to_create)} local repositories to create")
+        
+        def create_single_local(repo_name, repo_config):
+            repo = repo_config.copy()
+            repo["rclass"] = "local"
+            repo["dockerApiVersion"] = "V2"
+            
+            # Set environment if provided
+            if environment:
+                repo["environments"] = [environment]
+            
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                json=repo,
+                headers=self.rt2.headers,
+                verify=False
+            )
+            return repo_name, resp
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
-                executor.submit(self.rt2.create_single_local_repository, repo_name, repo_config): repo_name
-                for repo_name, repo_config in repos_to_create
+                executor.submit(create_single_local, repo_name, repo_config): repo_name
+                for repo_name, repo_config in repos_to_create.items()
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
-                repo_name = future_to_repo[future]
                 try:
-                    repo_name, resp = future.result()
-                    if resp.status_code == 200:
-                        print(f"Successfully created repository: {repo_name}")
-                        success_file.write(f"Created {repo_name}\n")
-                    else:
-                        print(f"Failed to create repository {repo_name}: {resp.status_code} - {resp.text}")
-                        error_file.write(f"{repo_name} | {resp.status_code} - {resp.text}\n")
-                        failed_repos.append(repo_name)
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to create local repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        else:
+                            success_msg = f"Successfully created local repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
                 except Exception as e:
-                    print(f"Error creating repository {repo_name}: {str(e)}")
+                    repo_name = future_to_repo[future]
+                    print(f"Error processing repository {repo_name}: {str(e)}")
                     error_file.write(f"{repo_name} | Exception: {str(e)}\n")
                     failed_repos.append(repo_name)
-
-        # Create semicolon-separated list of failed repos
+        
         if failed_repos:
-            failed_repos_str = ";".join(failed_repos)
-            print("\nFailed repositories (semicolon-separated):")
+            failed_repos_str = ";".join(sorted(failed_repos))
+            print("\nFailed local repositories (semicolon-separated):")
             print(failed_repos_str)
-            error_file.write("\nFailed repositories (semicolon-separated):\n")
+            error_file.write("\nFailed local repositories (semicolon-separated):\n")
             error_file.write(failed_repos_str)
+        
+        error_file.close()
+        success_file.close()
 
-    def create_missing_remotes_on_target_parallel(self, max_workers=4):
+    def create_missing_remotes_on_target_parallel(self, max_workers=4, environment=None):
         """Create missing remote repositories in parallel"""
         print("Creating missing remote repositories for", self.rt2.name)
         error_file = open('./create_remote_errors.log', 'w')
@@ -1434,6 +1467,10 @@ class FederationHelper:
             repo["rclass"] = "remote"
             repo["password"] = ""  # Clear password for safety
             repo["dockerApiVersion"] = "V2"
+            
+            # Set environment if provided
+            if environment:
+                repo["environments"] = [environment]
             
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
@@ -1937,23 +1974,122 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
+    def assign_environment_to_repos(self, environment, repo_name=None, repo_type=None, max_workers=4, artifactory_instance='target'):
+        """
+        Assign environment to repositories with optional filtering by name or type
+        artifactory_instance: 'source' or 'target' to specify which instance to modify
+        """
+        # Select which Artifactory instance to modify
+        artifactory = self.rt1 if artifactory_instance == 'source' else self.rt2
+        print(f"\nAssigning environment '{environment}' to repositories in {artifactory.name}...")
+        error_file = open('./assign_environment_errors.log', 'w')
+        success_file = open('./assign_environment_success.log', 'w')
+        
+        failed_repos = []
+        repos_to_update = {}
+
+        # Handle single repository case
+        if repo_name:
+            print(f"Looking for repository '{repo_name}' in {artifactory.name}...")
+            for configs in [artifactory.local_configs, artifactory.remote_configs, 
+                           artifactory.virtual_configs, artifactory.federated_configs]:
+                if repo_name in configs:
+                    repos_to_update[repo_name] = {'config': configs[repo_name], 'type': configs[repo_name].get('rclass', 'unknown')}
+                    break
+            if not repos_to_update:
+                print(f"Repository {repo_name} not found in {artifactory.name}")
+                return
+        
+        # Handle repository type case
+        elif repo_type:
+            print(f"Finding all {repo_type} repositories in {artifactory.name}...")
+            if repo_type == 'local':
+                repos_to_update.update({name: {'config': config, 'type': 'local'} 
+                                      for name, config in artifactory.local_configs.items()
+                                      if name not in SYSTEM_REPOS})
+            elif repo_type == 'remote':
+                repos_to_update.update({name: {'config': config, 'type': 'remote'}
+                                      for name, config in artifactory.remote_configs.items()
+                                      if name not in SYSTEM_REPOS})
+            elif repo_type == 'virtual':
+                repos_to_update.update({name: {'config': config, 'type': 'virtual'}
+                                      for name, config in artifactory.virtual_configs.items()
+                                      if name not in SYSTEM_REPOS})
+            elif repo_type == 'federated':
+                repos_to_update.update({name: {'config': config, 'type': 'federated'}
+                                      for name, config in artifactory.federated_configs.items()
+                                      if name not in SYSTEM_REPOS})
+            elif repo_type == 'all':
+                print("Finding all repositories...")
+                repos_to_update.update({name: {'config': config, 'type': 'local'}
+                                      for name, config in artifactory.local_configs.items()
+                                      if name not in SYSTEM_REPOS})
+                repos_to_update.update({name: {'config': config, 'type': 'remote'}
+                                      for name, config in artifactory.remote_configs.items()
+                                      if name not in SYSTEM_REPOS})
+                repos_to_update.update({name: {'config': config, 'type': 'virtual'}
+                                      for name, config in artifactory.virtual_configs.items()
+                                      if name not in SYSTEM_REPOS})
+                repos_to_update.update({name: {'config': config, 'type': 'federated'}
+                                      for name, config in artifactory.federated_configs.items()
+                                      if name not in SYSTEM_REPOS})
+        
+        print(f"Found {len(repos_to_update)} repositories to update")
+        
+        def update_single_repo(repo_name, repo_info):
+            repo_config = repo_info['config'].copy()
+            repo_config["environments"] = [environment]
+            repo_config["rclass"] = repo_info['type']
+            
+            resp = requests.post(
+                f"{artifactory.url}/artifactory/api/repositories/{repo_name}",
+                json=repo_config,
+                headers=artifactory.headers,
+                verify=False
+            )
+            return repo_name, resp
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_repo, repo_name, repo_info): repo_name
+                for repo_name, repo_info in repos_to_update.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to update environment for repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        else:
+                            success_msg = f"Successfully assigned environment '{environment}' to repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
+                except Exception as e:
+                    repo_name = future_to_repo[future]
+                    print(f"Error processing repository {repo_name}: {str(e)}")
+                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    failed_repos.append(repo_name)
+        
+        if failed_repos:
+            failed_repos_str = ";".join(sorted(failed_repos))
+            print("\nFailed repositories (semicolon-separated):")
+            print(failed_repos_str)
+            error_file.write("\nFailed repositories (semicolon-separated):\n")
+            error_file.write(failed_repos_str)
+        
+        error_file.close()
+        success_file.close()
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Synchronize repositories and configurations between two Artifactory instances',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-  # Generate repository comparison report
-  %(prog)s --source-url https://source.artifactory --source-token TOKEN1 \\
-           --target-url https://target.artifactory --target-token TOKEN2 \\
-           report
-
-  # Create missing federated repositories on target
-  %(prog)s --source-url https://source.artifactory --source-token TOKEN1 \\
-           --target-url https://target.artifactory --target-token TOKEN2 create_missing_federated_on_target
-        '''
+        description='Sync repositories between Artifactory instances'
     )
-
+    
     # Required arguments
     parser.add_argument(
         '--source-url',
@@ -1991,14 +2127,14 @@ Examples:
             'list_missing_projects_target',
             'create_missing_locals_on_target',
             'create_missing_remotes_on_target',
-            'create_missing_virtual_on_target',
+            'create_missing_virtuals_on_target',
             'create_missing_federated_on_target',
             'update_locals_on_target_dry',
             'update_locals_on_target',
             'update_remotes_on_target_dry',
             'update_remotes_on_target',
             'update_federated_repos_on_target_dry',
-            'update_federated_repos_on_target'
+            'update_federated_repos_on_target',
             'update_virtuals_on_target',
             'update_virtuals_on_target_dry',                        
             'delete_repos_from_file',
@@ -2006,7 +2142,8 @@ Examples:
             'xray_report',
             'sync_xray_policies',
             'sync_xray_watches',
-            'sync_xray_ignore_rules'
+            'sync_xray_ignore_rules',
+            'assign_environment'
         ],
         help='Command to execute'
     )
@@ -2016,11 +2153,14 @@ Examples:
         '--repo-list-file',
         help='File containing repository keys to delete (one per line)'
     )
+
+    # Single repo-type argument for all operations (delete, assign, etc.)
     parser.add_argument(
         '--repo-type',
         choices=['local', 'remote', 'federated', 'virtual', 'all'],
-        help='Type of repositories to delete'
+        help='Type of repositories to process (for delete or assign operations)'
     )
+
     parser.add_argument(
         '--dry-run',
         action='store_true',
@@ -2038,6 +2178,24 @@ Examples:
         '--debug',
         action='store_true',
         help='Enable debug output including curl commands'
+    )
+
+    # Add environment argument
+    parser.add_argument(
+        '--environment',
+        help='Environment to assign to repositories'
+    )
+
+    parser.add_argument(
+        '--repo-name',
+        help='Repository name to assign environment to (optional)'
+    )
+
+    parser.add_argument(
+        '--artifactory',
+        choices=['source', 'target'],
+        default='target',
+        help='Which Artifactory instance to modify (default: target)'
     )
 
     return parser.parse_args()
@@ -2093,16 +2251,16 @@ def main():
         helper.sync_projects()
 
     elif args.command == "create_missing_federated_on_target":
-        helper.create_missing_federated_on_target(max_workers=args.max_workers)
+        helper.create_missing_federated_on_target(max_workers=args.max_workers, environment=args.environment)
 
     elif args.command == "create_missing_remotes_on_target":
-        helper.create_missing_remotes_on_target_parallel(args.max_workers)
+        helper.create_missing_remotes_on_target_parallel(args.max_workers, environment=args.environment)
 
-    elif args.command == "create_missing_virtual_on_target":
-        helper.create_missing_virtual_on_target(max_workers=args.max_workers)
+    elif args.command == "create_missing_virtuals_on_target":
+        helper.create_missing_virtuals_on_target(max_workers=args.max_workers, environment=args.environment)
 
     elif args.command == "create_missing_locals_on_target":
-        helper.create_missing_locals_on_target_parallel(args.max_workers)
+        helper.create_missing_locals_on_target_parallel(args.max_workers, environment=args.environment)
 
     elif args.command == "list_missing_projects_source":
         source.print_missing_projects(target)
@@ -2157,6 +2315,24 @@ def main():
 
     elif args.command == "sync_xray_ignore_rules":
         helper.create_missing_and_update_ignore_rules()
+
+    elif args.command == "assign_environment":
+        if not args.environment:
+            print("Error: --environment is required for assign_environment command")
+            sys.exit(1)
+        
+        # For target operations, ensure target details are provided
+        if args.artifactory == 'target' and (not args.target_url or not args.target_token):
+            print("Error: --target-url and --target-token are required for target operations")
+            sys.exit(1)
+            
+        helper.assign_environment_to_repos(
+            environment=args.environment,
+            repo_name=args.repo_name,
+            repo_type=args.repo_type,
+            max_workers=args.max_workers,
+            artifactory_instance=args.artifactory
+        )
 
 
 
