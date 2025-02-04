@@ -1,8 +1,8 @@
-# README for `upload_download_data.sh`
+
 
 ## Overview
 
-The `upload_download_data.sh` script is a Bash script designed to automate the process of transferring repositories from a source Artifactory server to a target Artifactory server. This script is intended for use with JFrog Artifactory and facilitates repository migration and synchronization between two Artifactory instances.
+The [download_upload_local_repo_data.sh](download_upload_local_repo_data.sh) script is a Bash script designed to automate the process of transferring repositories from a source Artifactory server to a target Artifactory server. This script is intended for use with JFrog Artifactory and facilitates repository migration and synchronization between two Artifactory instances.
 
 The script performs the following tasks:
 
@@ -21,7 +21,7 @@ To use the script, follow these steps:
 2. Run the script with the following command:
 
 ```bash
-./upload_download_data.sh
+./download_upload_local_repo_data.sh
 ```
 
 ## Script Behavior

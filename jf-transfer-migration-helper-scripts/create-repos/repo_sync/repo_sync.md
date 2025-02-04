@@ -340,7 +340,7 @@ python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
                     --target-url $TARGET --target-token TOKEN2 \
                     create_missing_locals_on_target --max-workers 4 --environment DEV
 ```
-If it fails with below message for some repos:
+6. If it fails to create the repos with below message for some repos:
 
    `"message" : "The repository key '<repokey>' should start with the project key and a dash: 'doc8-'\n"`
 
@@ -348,8 +348,15 @@ then migrate those repo using the semicolon seperated list :
 ```
 jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2" --include-projects=""
 ```
-If you want to reassign the environments for the source repos before creating the missing
-repos in target use:
+**Note:** If you want to avoid running the `/api/system/decrypt` i.e [Deactivate Artifactory Key Encryption](https://jfrog.com/help/r/jfrog-rest-apis/deactivate-artifactory-key-encryption) API you can use the  [Tool to decrypt Artifactory encrypted secrets](https://github.com/sureshvenkatesan/ArtifactoryDecryptor)
+
+---
+7. If the repo creation fails with HTTP 400 error
+`"message" : "Cannot assign multiple environments to a repository\n"` :
+
+There are 2 options:
+a) If you do not want to reassign the environments for the source repos ,
+but assign them to a specific environment in target , before creating the missing repos in target use:
 ```
 python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
@@ -360,25 +367,44 @@ python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     create_missing_locals_on_target --max-workers 4 --environment DEV
 ```
 
-If you want to assign the environment to repos in source before running the "create_missing_*" command 
+b) If you want to assign the environment to repos in source before running the "create_missing_*" commands ( without the `--environment` optional parameter)
 then do:
+- Assign environment to one repo in Source:
 ```
-Assign environment to one repo in Source:
 python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     assign_environment --environment DEV --repo-name sv-env-test --artifactory source
 ```
-Or if the repo is already created in the target artifactory you can still
-Assign environment to one repo in Target:
+---
+### Assign environment
+8. Assign environment to one repo already in  Target Artifactory:
 ```
 python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     assign_environment --environment DEV --repo-name sv-env-test --artifactory target
 ```
-Note: All these steos are need to avoid rhe HTTP 400 error
-`"message" : "Cannot assign multiple environments to a repository\n"`
+Assign environment to one type of repos or all repos in source or target as:
 
-If some repos still fail the we can exclude them as below and investigate the cause:
+
+```
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    assign_environment --environment DEV \
+                    --repo-type [local | remote | federated | virtual| all] \
+                     --artifactory [source | target]
+```
+
+---
+
+9. If local repos creation fail with below error:
+
+```
+"message" : "HTTP response status 500:Failed to execute add project resource with error UNKNOWN: HTTP status code 500\ninvalid content-type: text/plain; charset=utf-8\nheaders: Metadata(:status=500,content-type=text/plain; charset=utf-8,date=Fri, 31 Jan 2025 16:50:14 GMT,strict-transport-security=max-age=31536000,content-length=21)\nDATA-----------------------------\nInternal Server Error\n"
+```
+try the "create_missing_*" command repeatedly with `--max-workers 1` or with the  `jf rt transfer-config-merge` command for just one repo that failed and see if it works.
+
+---
+10. If some repos still fail the we can exclude them as below and investigate the cause:
 ```
 jf rt transfer-config-merge SOURCEID TARGETID   --include-repos="repo1;repo2"  --exclude-repos "repo3;repo4" --include-projects=""
 ```
@@ -395,12 +421,9 @@ which some Debian or RPM type repos need.
   ]
 }
 ```
-Try the "create_missing_*" command repeatedly or with `--max-workers 1` or with the abobe `jf rt transfer-config-merge` command if local repos fail with below error:
+---
 
-```
-"message" : "HTTP response status 500:Failed to execute add project resource with error UNKNOWN: HTTP status code 500\ninvalid content-type: text/plain; charset=utf-8\nheaders: Metadata(:status=500,content-type=text/plain; charset=utf-8,date=Fri, 31 Jan 2025 16:50:14 GMT,strict-transport-security=max-age=31536000,content-length=21)\nDATA-----------------------------\nInternal Server Error\n"
-```
-6. If you have the groups or users then to Sync these  to project roles try:
+11. If you have the groups or users then to Sync these  to project roles try:
 ```
 jf proj-sync replicate --dry-run --include-projects "br" \
   SOURCEID TARGETID addroles
@@ -410,7 +433,7 @@ jf proj-sync replicate  --include-projects "br" \
   SOURCEID TARGETID addroles
 ```
 
-7. Sync the  members to role in target based on the source artifactory using:
+12. Sync the  members to role in target based on the source artifactory using:
 ```
 jf proj-sync replicate --dry-run --include-projects "br" \
  SOURCEID TARGETID addmembers
@@ -419,13 +442,13 @@ jf proj-sync replicate --include-projects "br" \
  SOURCEID TARGETID addmembers
 
 ```
-8. If  you want to update existing local repos to reflect any changes, ensuring synchronization with the source Artifactory you can run:
+13. If  you want to update existing local repos to reflect any changes, ensuring synchronization with the source Artifactory you can run:
 ```
 python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     update_local_repos --max-workers 4
 ```
-9. Similarly create or modify the remote repos in target using:
+14. Similarly create the remote repos in target using:
 Note: the remote repos in the target will be created with empty i.e "" passwword.
 ```bash
 # Create repositories without environment
@@ -438,12 +461,13 @@ python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
                     --target-url $TARGET --target-token TOKEN2 \
                     create_missing_remotes_on_target --max-workers 4 --environment PROD
 ```
+Similarly update the remote repos in target using:
 ```
-python repo_sync.py --debug --source-url $SOURCE --source-token $TOKEN1 \
+python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     update_remotes_on_target --max-workers 4
 ```
-10. Similarly create or modify the virtual repos in target using:
+15. Similarly create or update the virtual repos in target using:
 ```
 python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
