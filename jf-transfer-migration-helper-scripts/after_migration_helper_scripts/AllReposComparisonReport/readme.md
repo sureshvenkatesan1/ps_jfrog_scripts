@@ -50,7 +50,26 @@ jf rt curl -X GET "/api/storageinfo" --server-id=target > target_storageinfo.jso
 5. Get the list of `local` repos you want to compare:
 ```
 jf rt curl  -X GET "/api/repositories?type=local"  --server-id=source | jq -r '.[] | .key' >> all_local_repos_in_source.txt
+```
+If you don't have `jq` you can use:
+```
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=source | \
+grep '"key"' | cut -d'"' -f4 >> all_local_repos_in_source.txt
 
+or
+
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=source | \
+grep -o '"key" *: *"[^"]*"' | \
+sed -E 's/"key" *: *"([^"]*)"/\1/' >> all_local_repos_in_source.txt
+
+or
+
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=source | \
+awk -F'"key":' '{for (i=2; i<=NF; i++) print $i}' | \
+awk -F'"' '{print $2}' >> all_local_repos_in_source.txt
+```
+Next sort this list of repos using:
+```
 sort -o all_local_repos_in_source.txt all_local_repos_in_source.txt
 ```
 If you want to exclude some repos (listed in `exclude_these_cust-responsibility_repos.txt`)  from all_local_repos_in_source.txt you can do:

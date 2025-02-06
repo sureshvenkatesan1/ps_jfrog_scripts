@@ -42,6 +42,31 @@ jf c use ncr
 jf rt curl  -X GET "/api/repositories?type=local"  | jq -r '.[] | .key' >> ncr/all_local_repos_in_ncr.txt
 sort -o ncr/all_local_repos_in_ncr.txt ncr/all_local_repos_in_ncr.txt
 
+```
+**Note:**
+If you don't have `jq` you can use:
+```
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=ncr | \
+grep '"key"' | cut -d'"' -f4 >> ncr/all_local_repos_in_ncr.txt
+
+or
+
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=ncr | \
+grep -o '"key" *: *"[^"]*"' | \
+sed -E 's/"key" *: *"([^"]*)"/\1/' >> ncr/all_local_repos_in_ncr.txt
+
+or
+
+jf rt curl -X GET "/api/repositories?type=local" -s --server-id=ncr | \
+awk -F'"key":' '{for (i=2; i<=NF; i++) print $i}' | \
+awk -F'"' '{print $2}' >> ncr/all_local_repos_in_ncr.txt
+```
+Next sort this list of repos using:
+```
+sort -o ncr/all_local_repos_in_ncr.txt ncr/all_local_repos_in_ncr.txt
+```
+Do same for remote and virtual repos:
+```
 jf rt curl  -X GET "/api/repositories?type=remote"  | jq -r '.[] | .key' >> ncr/all_remote_repos_in_ncr.txt
 sort -o ncr/all_remote_repos_in_ncr.txt ncr/all_remote_repos_in_ncr.txt
 
