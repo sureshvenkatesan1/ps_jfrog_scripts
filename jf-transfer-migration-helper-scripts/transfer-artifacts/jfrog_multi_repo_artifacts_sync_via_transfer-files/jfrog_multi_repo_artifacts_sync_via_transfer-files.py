@@ -70,10 +70,11 @@ def run_command_with_timeout(command, log_file, env_vars, timeout):
 
 # Define the worker function
 def worker(repo_name, args, log_dir, main_log_file):
-    start_time = datetime.now()
+    start_time_dt = datetime.now()  # For display
+    start_time = time.time()  # For calculations
     
     with open(main_log_file, 'a') as f:
-        f.write(f"\n[{start_time}] Starting transfer for repository: {repo_name}\n")
+        f.write(f"\n[{start_time_dt}] Starting transfer for repository: {repo_name}\n")
     
     jfrog_dir = f"{os.path.expanduser('~')}/{args.target}/.jfrog-{repo_name}"
 
@@ -107,7 +108,7 @@ def worker(repo_name, args, log_dir, main_log_file):
     
     # Log the start time in human-readable format
     with open(log_file, 'w') as f:
-        f.write(f"\nStart time {repo_name}: {start_time}\n")
+        f.write(f"\nStart time {repo_name}: {start_time_dt}\n")
 
     env_vars = {
         "JFROG_CLI_HOME_DIR": jfrog_dir,
@@ -133,16 +134,13 @@ def worker(repo_name, args, log_dir, main_log_file):
 
     run_command_with_timeout(command, log_file, env_vars, args.timeout)
 
-    end_time = time.time()  # Record the end time of the process
-    total_time = end_time - start_time  # Calculate the total time
+    end_time = time.time()
+    total_time = end_time - start_time
 
     # Log the total runtime
     with open(log_file, 'a') as f:
         f.write(f"\nTotal runtime for {repo_name}: {total_time:.2f} seconds\n")
 
-    end_time = time.time()
-    total_time = end_time - start_time
-    
     with open(main_log_file, 'a') as f:
         f.write(f"[{datetime.now()}] Completed transfer for repository: {repo_name}\n")
         f.write(f"Total time for {repo_name}: {total_time:.2f} seconds\n")
@@ -184,7 +182,7 @@ def read_list_from_file(file_path):
 
 # Main function to set up tasks and call the batch handler
 def main():
-    start_time = time.time()
+    start_time = time.time()  # Use time.time() for calculations
     args = parse_arguments()
 
     # Create main log file in script directory
