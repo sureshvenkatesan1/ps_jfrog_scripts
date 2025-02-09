@@ -4,6 +4,7 @@ This [jfrog_multi_repo_artifacts_sync_via_transfer-files.py](jfrog_multi_repo_ar
 
 ## Features
 
+- Repository existence validation in both source and target before transfer
 - Parallel processing of multiple repositories
 - Automatic detection and restart of stuck transfers
 - Comprehensive logging system with both main and individual repository logs
@@ -19,6 +20,7 @@ This [jfrog_multi_repo_artifacts_sync_via_transfer-files.py](jfrog_multi_repo_ar
 2. JFrog CLI installed and configured
 3. Source and target Artifactory server configurations set up in JFrog CLI
 4. A text file (`repo_list.txt`) containing repository names to transfer (one per line)
+5. API access to both source and target Artifactory instances
 
 ## Installation
 
@@ -61,6 +63,26 @@ python jfrog_multi_repo_artifacts_sync_via_transfer-files.py \
 | --timeout | No | 600 | Timeout in seconds for detecting stuck processes |
 | --batch-size | No | 4 | Number of repositories to process in parallel |
 
+## Repository Validation
+
+Before initiating any transfer, the script performs the following checks:
+
+1. Verifies repository existence in source Artifactory using:
+   ```bash
+   jf rt curl -X GET "/api/repositories/<repo_name>" -s -i --server-id=<source>
+   ```
+
+2. Verifies repository existence in target Artifactory using:
+   ```bash
+   jf rt curl -X GET "/api/repositories/<repo_name>" -s -i --server-id=<target>
+   ```
+
+If a repository doesn't exist in either location:
+- The error is logged in the main log file
+- The repository is skipped
+- The script continues with the next repository
+- No transfer is attempted for the missing repository
+
 ## Monitoring Progress
 
 The script provides two types of logs for monitoring progress:
@@ -71,6 +93,7 @@ Located in the script directory as `transfer_main_YYYYMMDD_HHMMSS.log`
 
 Contains:
 - Overall process start/end times
+- Repository existence check results
 - Current batch processing status
 - Repository transfer start/completion times
 - Number of restart attempts per repository
@@ -88,13 +111,20 @@ Found 10 repositories to process
 Processing in batches of 4
 --------------------------------------------------------------------------------
 
-[2024-03-21 10:00:01] Processing batch 1 of 3
-Repositories in this batch: repo1, repo2, repo3, repo4
-
 [2024-03-21 10:00:01] Starting transfer for repository: repo1
-[2024-03-21 10:00:01] Executing command for repo1:
+Checking repository existence in source and target...
+Repository existence confirmed in both source and target
+[2024-03-21 10:00:02] Executing command for repo1:
 /usr/local/bin/jf rt transfer-files source-server target-server --include-repos repo1 --ignore-state=false --filestore=true
 ...
+
+[2024-03-21 10:00:03] Starting transfer for repository: repo2
+Checking repository existence in source and target...
+Repository 'repo2' not found in target Artifactory (target-server)
+Response: HTTP/1.1 404 Not Found
+...
+Skipping this repository...
+--------------------------------------------------------------------------------
 ```
 
 ### 2. Individual Repository Logs
@@ -164,17 +194,19 @@ tail -f transfer_main_20240321_100000.log
 ## Best Practices
 
 1. Start with default settings for initial testing
-2. Adjust batch-size based on available system resources
-3. Set appropriate timeout values based on repository sizes
-4. Monitor both main and individual repository logs
-5. Keep repo_list.txt organized with one repository per line
-6. Review the command output in the main log to verify correct parameters
+2. Ensure repositories exist in both source and target before running
+3. Adjust batch-size based on available system resources
+4. Set appropriate timeout values based on repository sizes
+5. Monitor both main and individual repository logs
+6. Keep repo_list.txt organized with one repository per line
+7. Review the command output in the main log to verify correct parameters
 
 ## Troubleshooting
 
-1. Check main log file for overall status and exact commands being executed
+1. Check main log file for repository existence check results
 2. Review individual repository logs for specific transfer issues
-3. Increase timeout if transfers are being restarted too frequently
-4. Decrease batch-size if system resources are constrained
-5. Ensure JFrog CLI configurations are correct for both source and target
-6. Verify the command format in the logs matches the expected JFrog CLI syntax
+3. Verify repository names match exactly between source and target
+4. Ensure proper API access to both Artifactory instances
+5. Increase timeout if transfers are being restarted too frequently
+6. Decrease batch-size if system resources are constrained
+7. Ensure JFrog CLI configurations are correct for both source and target

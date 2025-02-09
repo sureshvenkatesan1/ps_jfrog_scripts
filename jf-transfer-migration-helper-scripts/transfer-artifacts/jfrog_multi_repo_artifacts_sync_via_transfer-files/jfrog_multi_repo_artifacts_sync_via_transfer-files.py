@@ -68,6 +68,22 @@ def run_command_with_timeout(command, log_file, env_vars, timeout):
             f.write(f"Process failed with return code {process.returncode} at {datetime.now()}. Retrying...\n")
             f.write(f"{banner}\n")
 
+def check_repo_exists(jf_path, repo_name, server_id):
+    """Check if repository exists in the specified Artifactory server"""
+    command = [jf_path, "rt", "curl", "-X", "GET", f"/api/repositories/{repo_name}", "-s", "-i", f"--server-id={server_id}"]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+        # Check if response contains HTTP status code 200
+        # The response might be in format "HTTP/1.1 200 -X GET" or similar
+        response_lines = result.stdout.split('\n')
+        if response_lines:
+            first_line = response_lines[0].strip()
+            # Check if status code 200 is present in the first line
+            return "200" in first_line, result.stdout
+        return False, result.stdout
+    except Exception as e:
+        return False, str(e)
+
 # Define the worker function
 def worker(repo_name, args, log_dir, main_log_file):
     start_time_dt = datetime.now()  # For display
@@ -75,6 +91,36 @@ def worker(repo_name, args, log_dir, main_log_file):
     
     with open(main_log_file, 'a') as f:
         f.write(f"\n[{start_time_dt}] Starting transfer for repository: {repo_name}\n")
+        f.write(f"Checking repository existence in source and target...\n")
+    
+    # Check repository existence in source
+    source_exists, source_response = check_repo_exists(args.jf_path, repo_name, args.source)
+    if not source_exists:
+        error_msg = f"Repository '{repo_name}' not found in source Artifactory ({args.source})\n"
+        error_msg += f"Response: {source_response}\n"
+        error_msg += "Skipping this repository...\n"
+        error_msg += "-" * 80 + "\n"
+        
+        with open(main_log_file, 'a') as f:
+            f.write(error_msg)
+        print(error_msg)
+        return
+
+    # Check repository existence in target
+    target_exists, target_response = check_repo_exists(args.jf_path, repo_name, args.target)
+    if not target_exists:
+        error_msg = f"Repository '{repo_name}' not found in target Artifactory ({args.target})\n"
+        error_msg += f"Response: {target_response}\n"
+        error_msg += "Skipping this repository...\n"
+        error_msg += "-" * 80 + "\n"
+        
+        with open(main_log_file, 'a') as f:
+            f.write(error_msg)
+        print(error_msg)
+        return
+
+    with open(main_log_file, 'a') as f:
+        f.write(f"Repository existence confirmed in both source and target\n")
     
     jfrog_dir = f"{os.path.expanduser('~')}/{args.target}/.jfrog-{repo_name}"
 
