@@ -22,6 +22,10 @@ This [repo_sync.py](repo_sync.py) script helps synchronize repositories and conf
   - Environments (Global and Project-specific)
   - Property Sets
 - Generate reports in separate log files for each operation type
+- Support for parallel processing operations
+- Docker repository name handling (underscore to hyphen conversion)
+- Environment assignment to repositories
+- Debug mode with curl command output
 
 ## Prerequisites
 
@@ -37,7 +41,7 @@ This [repo_sync.py](repo_sync.py) script helps synchronize repositories and conf
 ```bash
 python repo_sync.py --source-url SOURCE_URL --source-token SOURCE_TOKEN \
                     --target-url TARGET_URL --target-token TARGET_TOKEN \
-                    COMMAND
+                    COMMAND [OPTIONS]
 ```
 
 ### Required Arguments
@@ -48,13 +52,24 @@ python repo_sync.py --source-url SOURCE_URL --source-token SOURCE_TOKEN \
 - `--target-token`: Access token for the target Artifactory
 - `COMMAND`: Command to execute (see Available Commands below)
 
+### Optional Arguments
+
+- `--repo-list-file`: Path to a file containing repository keys to delete (one per line)
+- `--repo-type`: Type of repositories to process (`local`, `remote`, `federated`, `virtual`, `all`)
+- `--dry-run`: Preview operations without executing them
+- `--max-workers`: Maximum number of parallel workers (default: 4)
+- `--debug`: Enable debug output including curl commands
+- `--environment`: Environment to assign to repositories
+- `--repo-name`: Specific repository name to process
+- `--artifactory`: Which Artifactory instance to modify (`source` or `target`, default: target)
+
 ### Available Commands
 
 1. Generate Reports:
 ```bash
 # Generate repository comparison report
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
                     report
 
 # List remote repositories with passwords missing in target
@@ -85,15 +100,14 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
 
 2. Repository Management:
 ```bash
-# Create missing local repositories on target with parallel processing
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_locals_on_target --max-workers 8
+# Create missing repositories with parallel processing
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    create_missing_locals_on_target --max-workers 8 [--environment ENV]
 
-# Create missing remote repositories on target with parallel processing
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    create_missing_remotes_on_target --max-workers 8
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    create_missing_remotes_on_target --max-workers 8 [--environment ENV]
 
 # Create missing federated repositories on target with parallel processing
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
@@ -152,6 +166,12 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     update_virtuals_on_target --max-workers 8
+
+# Dry run versions available with _dry suffix
+update_locals_on_target_dry
+update_remotes_on_target_dry
+update_federated_repos_on_target_dry
+update_virtuals_on_target_dry
 ```
 
 4. Configuration Synchronization:
@@ -189,15 +209,14 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
 
 5. Repository Deletion:
 ```bash
-# Delete repositories listed in a file with parallel processing (dry run)
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_from_file --repo-list-file repos_to_delete.txt --max-workers 8 --dry-run
+# Delete repositories with parallel processing
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    delete_repos_from_file --repo-list-file repos.txt --max-workers 8 [--dry-run]
 
-# Delete all repositories of a specific type with parallel processing
-python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
-                    --target-url https://target.artifactory --target-token TOKEN2 \
-                    delete_repos_by_type --repo-type remote --max-workers 8
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    delete_repos_by_type --repo-type remote --max-workers 8 [--dry-run]
 ```
 
 ### Environment Management:

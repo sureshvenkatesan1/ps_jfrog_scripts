@@ -312,46 +312,110 @@ class Artifactory:
                 print(f"Failed to delete repository {repo}: {resp.status_code} - {resp.text}")
                 error_file.write(f"{repo} | {resp.status_code} - {resp.text}\n")
 
+    def assign_repo_to_project(self, repo_name, project_key):
+        """Assign a repository to a project"""
+        url = f"{self.url}/access/api/v1/projects/_/attach/repositories/{repo_name}/{project_key}?force=true"
+        debug_request('PUT', url, headers=self.headers, debug=self.debug)
+        resp = requests.put(url, headers=self.headers, verify=False)
+        return resp.status_code == 204, resp
+
     def create_single_local_repository(self, repo_name, repo_config):
         """Create a single local repository with default values and Docker-specific settings"""
-        
         url = self.url + "/artifactory/api/repositories/" + repo_name
+        repo_config = repo_config.copy()  # Create a copy to avoid modifying the original
+        
+        # Store project key if it exists and remove it from config
+        project_key = repo_config.pop("projectKey", None)
+        
         repo_config["rclass"] = "local"
-        # Set default values if not provided
         repo_config["packageType"] = repo_config.get("packageType", "maven")
-        #repo_config["repositoryLayoutRef"] = repo_config.get("repositoryLayoutRef", "maven-2-default")
         repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
         repo_config["dockerApiVersion"] = "V2"
 
         debug_request('PUT', url, headers=self.headers, json_data=repo_config, debug=self.debug)
         resp = requests.put(url, json=repo_config, headers=self.headers, verify=False)
-
-        return repo_name, resp
+        
+        if resp.status_code == 200:
+            success_msg = f"Successfully created local repository: {repo_name}"
+            print(success_msg)
+            
+            # If we have a project key, assign it to the project
+            if project_key:
+                success, assign_resp = self.assign_repo_to_project(repo_name, project_key)
+                if not success:
+                    error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                    print(error_msg)
+                    return repo_name, resp, False
+                else:
+                    success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                    print(success_msg)
+        
+        return repo_name, resp, True
 
     def create_single_remote_repository(self, repo_name, repo_config):
         """Create a single remote repository"""
-        headers = {'content-type': 'application/json',}
+        repo_config = repo_config.copy()  # Create a copy to avoid modifying the original
+        
+        # Store project key if it exists and remove it from config
+        project_key = repo_config.pop("projectKey", None)
+        
         repo_config["rclass"] = "remote"
         repo_config["password"] = ""  # Clear password for safety
-        # Set default values if not provided
         repo_config["packageType"] = repo_config.get("packageType", "maven")
         repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
         repo_config["dockerApiVersion"] = "V2"
 
         resp = requests.put(self.url + "/artifactory/api/repositories/" + repo_name, 
-                          json=repo_config, headers=self.headers, debug=self.debug)
-        return repo_name, resp
+                           json=repo_config, headers=self.headers, verify=False)
+        
+        if resp.status_code == 200:
+            success_msg = f"Successfully created remote repository: {repo_name}"
+            print(success_msg)
+            
+            # If we have a project key, assign it to the project
+            if project_key:
+                success, assign_resp = self.assign_repo_to_project(repo_name, project_key)
+                if not success:
+                    error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                    print(error_msg)
+                    return repo_name, resp, False
+                else:
+                    success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                    print(success_msg)
+        
+        return repo_name, resp, True
 
     def create_single_virtual_repository(self, repo_name, repo_config):
         """Create a single virtual repository"""
-        headers = {'content-type': 'application/json',}
+        repo_config = repo_config.copy()  # Create a copy to avoid modifying the original
+        
+        # Store project key if it exists and remove it from config
+        project_key = repo_config.pop("projectKey", None)
+        
         repo_config["rclass"] = "virtual"
         repo_config["packageType"] = repo_config.get("packageType", "maven")
         repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
         repo_config["dockerApiVersion"] = "V2"        
+        
         resp = requests.put(self.url + "/artifactory/api/repositories/" + repo_name, 
-                          json=repo_config, headers=self.headers, debug=self.debug)
-        return repo_name, resp
+                           json=repo_config, headers=self.headers, verify=False)
+        
+        if resp.status_code == 200:
+            success_msg = f"Successfully created virtual repository: {repo_name}"
+            print(success_msg)
+            
+            # If we have a project key, assign it to the project
+            if project_key:
+                success, assign_resp = self.assign_repo_to_project(repo_name, project_key)
+                if not success:
+                    error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                    print(error_msg)
+                    return repo_name, resp, False
+                else:
+                    success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                    print(success_msg)
+        
+        return repo_name, resp, True
 
     def delete_repositories_from_file_parallel(self, filename, max_workers=4, dry_run=True):
         """Delete repositories listed in a file in parallel"""
@@ -502,6 +566,26 @@ class Artifactory:
         """Compare two project configurations dynamically"""
         # Compare the entire project configurations
         return project1 != project2
+
+    def check_repo_exists(self, repo_name, package_type=None):
+        """
+        Check if a repository exists in target Artifactory
+        Args:
+            repo_name: Name of the repository to check
+            package_type: Package type of the repository (e.g. "docker")
+        Returns:
+            bool: True if repository exists, False otherwise
+        """
+        # For docker repos, check with hyphenated name
+        if package_type == "docker":
+            repo_name = repo_name.replace('_', '-')
+        
+        resp = requests.get(
+            f"{self.url}/artifactory/api/repositories/{repo_name}",
+            headers=self.headers,
+            verify=False
+        )
+        return resp.status_code == 200
 
 class FederationHelper:
     def __init__(self, rt1, rt2):
@@ -715,7 +799,7 @@ class FederationHelper:
                 else:
                     print("success")
 
-    def create_missing_federated_on_target(self, max_workers=4, environment=None):
+    def create_missing_federated_repos_on_target_parallel(self, max_workers=4, environment=None):
         """Create missing federated repositories on target in parallel"""
         print("Creating missing federated repositories for", self.rt2.name)
         error_file = open('./create_federated_errors.log', 'w')
@@ -723,21 +807,22 @@ class FederationHelper:
         
         failed_repos = []
         
-        # Get list of repos to create
-        repos_to_create = {
-            repo_name: repo_config 
-            for repo_name, repo_config in self.rt1.federated_configs.items()
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.federated_configs
-        }
+        # Get filtered list of repos to create
+        repos_to_create = self.get_filtered_repos_to_create(
+            self.rt1.federated_configs, 
+            self.rt2.federated_configs
+        )
         
         print(f"Found {len(repos_to_create)} federated repositories to create")
         
         def create_single_federated(repo_name, repo_config):
-            repo = repo_config.copy()
-            repo["members"] = [{"url": f"{self.rt1.url}/artifactory/{repo_name}", "enabled": "true"}]
-            repo["rclass"] = "federated"
+            repo = repo_config.copy()  # Create a copy to avoid modifying the original
             
-            # Set default values if not provided
+            # Store project key if it exists and remove it from config
+            project_key = repo.pop("projectKey", None)
+            
+            repo["rclass"] = "federated"
+            repo["members"] = [{"url": f"{self.rt1.url}/artifactory/{repo_name}", "enabled": "true"}]
             repo["packageType"] = repo.get("packageType", "maven")
             repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
             repo["dockerApiVersion"] = "V2"
@@ -752,7 +837,61 @@ class FederationHelper:
                 headers=self.rt2.headers,
                 verify=False
             )
-            return repo_name, resp
+
+            # If creation fails with illegal character error for Docker repos, try with hyphens
+            if (resp.status_code == 400 and 
+                repo["packageType"] == "docker" and 
+                "Illegal character: '_'" in resp.text):
+                
+                error_msg = f"Docker repository creation failed due to underscore in name: {repo_name}"
+                print(error_msg)
+                error_file.write(f"{error_msg}\n")
+                error_file.write(f"Response: {resp.status_code} - {resp.text}\n")
+                
+                # Replace underscores with hyphens in repo name and config
+                new_repo_name = repo_name.replace('_', '-')
+                repo["key"] = new_repo_name
+                
+                print(f"Retrying with modified name: {new_repo_name}")
+                
+                # Check if repository with hyphenated name already exists
+                if self.rt2.check_repo_exists(new_repo_name, repo["packageType"]):
+                    error_msg = f"Repository {new_repo_name} already exists in target"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    return repo_name, None, False
+                
+                # Retry with modified name
+                resp = requests.put(
+                    f"{self.rt2.url}/artifactory/api/repositories/{new_repo_name}",
+                    json=repo,
+                    headers=self.rt2.headers,
+                    verify=False
+                )
+                
+                # Update repo_name for further processing if successful
+                if resp.status_code == 200:
+                    repo_name = new_repo_name
+                                
+            if resp.status_code == 200:
+                success_msg = f"Successfully created federated repository: {repo_name}"
+                print(success_msg)
+                success_file.write(f"{success_msg}\n")
+                
+                # If we have a project key, assign it to the project
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(repo_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        return repo_name, resp, False
+                    else:
+                        success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+            
+            return repo_name, resp, True
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
@@ -764,28 +903,26 @@ class FederationHelper:
                 try:
                     result = future.result()
                     if result:
-                        repo_name, resp = result
+                        repo_name, resp, project_success = result
                         if resp.status_code != 200:
                             error_msg = f"Failed to create federated repository {repo_name}: {resp.status_code} - {resp.text}"
                             print(error_msg)
                             error_file.write(f"{error_msg}\n")
                             failed_repos.append(repo_name)
-                        else:
-                            success_msg = f"Successfully created federated repository: {repo_name}"
-                            print(success_msg)
-                            success_file.write(f"{success_msg}\n")
+                        elif not project_success:
+                            failed_repos.append(repo_name)  # Add to failed list if project assignment failed
                 except Exception as e:
                     repo_name = future_to_repo[future]
-                    print(f"Error processing repository {repo_name}: {str(e)}")
-                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    error_msg = f"Error processing repository {repo_name}: {str(e)}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
                     failed_repos.append(repo_name)
         
         if failed_repos:
             failed_repos_str = ";".join(sorted(failed_repos))
-            print("\nFailed federated repositories (semicolon-separated):")
-            print(failed_repos_str)
-            error_file.write("\nFailed federated repositories (semicolon-separated):\n")
-            error_file.write(failed_repos_str)
+            error_msg = "\nFailed federated repositories (semicolon-separated):\n" + failed_repos_str
+            print(error_msg)
+            error_file.write(error_msg + "\n")
         
         error_file.close()
         success_file.close()
@@ -817,7 +954,7 @@ class FederationHelper:
                     success_file.write(resp.text)
                     success_file.write('\n')
 
-    def create_missing_virtuals_on_target(self, max_workers=4, environment=None):
+    def create_missing_virtuals_on_target_parallel(self, max_workers=4, environment=None):
         """Create missing virtual repositories on target in parallel"""
         print("Creating missing virtual repositories for", self.rt2.name)
         error_file = open('./create_virtual_errors.log', 'w')
@@ -825,71 +962,129 @@ class FederationHelper:
         
         failed_repos = []
         
-        # Get list of repos to create
-        repos_to_create = [
-            repo for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
-            if repo["key"] not in SYSTEM_REPOS and repo["key"] not in self.rt2.virtual_configs
-        ]
+        # Get filtered list of repos to create
+        repos_to_create = self.get_filtered_repos_to_create(
+            self.rt1.virtual_configs, 
+            self.rt2.virtual_configs
+        )
         
         print(f"Found {len(repos_to_create)} virtual repositories to create")
         
-        def create_single_virtual(repo):
-            repo_name = repo["key"]
-            repo_config = requests.get(
-                f"{self.rt1.url}/artifactory/api/repositories/{repo_name}",
-                headers=self.rt1.headers,
-                verify=False
-            ).json()
+        def create_single_virtual(repo_name, repo_config):
+            repo = repo_config.copy()  # Create a copy to avoid modifying the original
             
-            repo_config["rclass"] = "virtual"
-            repo_config["packageType"] = repo_config.get("packageType", "maven")
-            repo_config["repoLayoutRef"] = repo_config.get("repoLayoutRef", "maven-2-default")
-            repo_config["dockerApiVersion"] = "V2"
+            # Check for dependent repositories
+            missing_deps = []
+            if "repositories" in repo:
+                for dep_repo in repo["repositories"]:
+                    # Check if dependent repo exists in target using check_repo_exists
+                    if not self.rt2.check_repo_exists(dep_repo, repo["packageType"]):
+                        missing_deps.append(dep_repo)
+                        print(f"Warning: Dependent repository {dep_repo} for virtual repo {repo_name} does not exist")
+            
+            if missing_deps:
+                error_msg = f"Cannot create virtual repository {repo_name} - missing dependent repositories: {', '.join(missing_deps)}"
+                print(error_msg)
+                error_file.write(f"{error_msg}\n")
+                return repo_name, None, False
+            
+            # Store project key if it exists and remove it from config
+            project_key = repo.pop("projectKey", None)
+            
+            repo["rclass"] = "virtual"
+            repo["dockerApiVersion"] = "V2"
+            
+            # Set default values if not provided
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
             
             # Set environment if provided
             if environment:
-                repo_config["environments"] = [environment]
+                repo["environments"] = [environment]
             
+            # Handle Docker repository naming convention
+            if (repo["packageType"] == "docker"):
+                
+                # Replace underscores with hyphens in repo name
+                new_repo_name = repo_name.replace('_', '-')
+                repo["key"] = new_repo_name
+                
+                # Check if repository with hyphenated name already exists
+                if self.rt2.check_repo_exists(new_repo_name, repo["packageType"]):
+                    error_msg = f"Repository {new_repo_name} already exists in target"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    return repo_name, None, False
+                
+                # Replace underscores in repositories list
+                if "repositories" in repo:
+                    repo["repositories"] = [r.replace('_', '-') for r in repo["repositories"]]
+                
+                # Replace underscores in defaultDeploymentRepo
+                if "defaultDeploymentRepo" in repo:
+                    repo["defaultDeploymentRepo"] = repo["defaultDeploymentRepo"].replace('_', '-')
+                
+                print(f"Modified Docker repository name from {repo_name} to {new_repo_name}")
+                repo_name = new_repo_name
+            
+            # Create the repository
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
-                json=repo_config,
+                json=repo,
                 headers=self.rt2.headers,
                 verify=False
             )
-            return repo_name, resp
+            print(resp.text)
+            if resp.status_code == 200:
+                success_msg = f"Successfully created virtual repository: {repo_name}"
+                print(success_msg)
+                success_file.write(f"{success_msg}\n")
+                
+                # If we have a project key, assign it to the project
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(repo_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        return repo_name, resp, False
+                    else:
+                        success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
-                executor.submit(create_single_virtual, repo): repo["key"]
-                for repo in repos_to_create
+                executor.submit(create_single_virtual, repo_name, repo_config): repo_name
+                for repo_name, repo_config in repos_to_create.items()
             }
             
             for future in concurrent.futures.as_completed(future_to_repo):
                 try:
                     result = future.result()
                     if result:
-                        repo_name, resp = result
-                        if resp.status_code != 200:
-                            error_msg = f"Failed to create virtual repository {repo_name}: {resp.status_code} - {resp.text}"
+                        repo_name, resp, project_success = result
+                        if resp is None or resp.status_code != 200:
+                            error_msg = f"Failed to create virtual repository {repo_name}"
+                            if resp:
+                                error_msg += f": {resp.status_code} - {resp.text}"
                             print(error_msg)
                             error_file.write(f"{error_msg}\n")
                             failed_repos.append(repo_name)
-                        else:
-                            success_msg = f"Successfully created virtual repository: {repo_name}"
-                            print(success_msg)
-                            success_file.write(f"{success_msg}\n")
+                        elif not project_success:
+                            failed_repos.append(repo_name)  # Add to failed list if project assignment failed
                 except Exception as e:
                     repo_name = future_to_repo[future]
-                    print(f"Error processing repository {repo_name}: {str(e)}")
-                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    error_msg = f"Error processing repository {repo_name}: {str(e)}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
                     failed_repos.append(repo_name)
         
         if failed_repos:
             failed_repos_str = ";".join(sorted(failed_repos))
-            print("\nFailed virtual repositories (semicolon-separated):")
-            print(failed_repos_str)
-            error_file.write("\nFailed virtual repositories (semicolon-separated):\n")
-            error_file.write(failed_repos_str)
+            error_msg = "\nFailed virtual repositories (semicolon-separated):\n" + failed_repos_str
+            print(error_msg)
+            error_file.write(error_msg + "\n")
         
         error_file.close()
         success_file.close()
@@ -987,7 +1182,7 @@ class FederationHelper:
             if repo_name not in SYSTEM_REPOS:
                 self.federate_one(repo_name)
 
-    def update_virtuals_on_target(self, dry=False, max_workers=4):
+    def update_virtuals_on_target_parallel(self, dry=False, max_workers=4):
         """Update virtual repository configurations in target in parallel"""
         print("\nChecking virtual repository configurations...")
         error_file = open('./update_virtual_errors.log', 'w')
@@ -997,13 +1192,7 @@ class FederationHelper:
             repo_name = repo["key"]
             repo_refs = repo["repositories"]
             
-            resp = requests.get(
-                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
-                headers=self.rt2.headers,
-                verify=False
-            )
-            
-            if resp.status_code >= 400:
+            if not self.rt2.check_repo_exists(repo_name, repo["packageType"]):
                 print(f"Repository {repo_name} does not exist in target.")
                 return None
                 
@@ -1376,38 +1565,100 @@ class FederationHelper:
                 print("Error for Ignore Rule", rule_id, "unexpected status code", rt2_rule.status_code)
 
     def create_missing_locals_on_target_parallel(self, max_workers=4, environment=None):
-        """Create missing local repositories in parallel"""
+        """Create missing local repositories on target in parallel"""
         print("Creating missing local repositories for", self.rt2.name)
         error_file = open('./create_local_errors.log', 'w')
         success_file = open('./create_local_success.log', 'w')
         
         failed_repos = []
         
-        # Get list of repos to create
-        repos_to_create = {
-            repo_name: repo_config 
-            for repo_name, repo_config in self.rt1.local_configs.items()
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.local_configs
-        }
+        # Get filtered list of repos to create
+        repos_to_create = self.get_filtered_repos_to_create(
+            self.rt1.local_configs, 
+            self.rt2.local_configs
+        )
         
         print(f"Found {len(repos_to_create)} local repositories to create")
         
         def create_single_local(repo_name, repo_config):
-            repo = repo_config.copy()
+            repo = repo_config.copy()  # Create a copy to avoid modifying the original
+            
+            # Store project key if it exists and remove it from config
+            project_key = repo.pop("projectKey", None)
+            
             repo["rclass"] = "local"
             repo["dockerApiVersion"] = "V2"
+            
+            # Set default values if not provided
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
             
             # Set environment if provided
             if environment:
                 repo["environments"] = [environment]
             
+            # First attempt with original name and without projectkey
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
                 json=repo,
                 headers=self.rt2.headers,
                 verify=False
             )
-            return repo_name, resp
+            
+            # If creation fails with illegal character error for Docker repos, try with hyphens
+            if (resp.status_code == 400 and 
+                repo["packageType"] == "docker" and 
+                "Illegal character: '_'" in resp.text):
+                
+                error_msg = f"Docker repository creation failed due to underscore in name: {repo_name}"
+                print(error_msg)
+                error_file.write(f"{error_msg}\n")
+                error_file.write(f"Response: {resp.status_code} - {resp.text}\n")
+                
+                # Replace underscores with hyphens in repo name and config
+                new_repo_name = repo_name.replace('_', '-')
+                repo["key"] = new_repo_name
+                
+                print(f"Retrying with modified name: {new_repo_name}")
+                
+                # Check if repository with hyphenated name already exists
+                if self.rt2.check_repo_exists(new_repo_name, repo["packageType"]):
+                    error_msg = f"Repository {new_repo_name} already exists in target"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    return repo_name, None, False
+                
+                # Retry with modified name
+                resp = requests.put(
+                    f"{self.rt2.url}/artifactory/api/repositories/{new_repo_name}",
+                    json=repo,
+                    headers=self.rt2.headers,
+                    verify=False
+                )
+                
+                # Update repo_name for further processing if successful
+                if resp.status_code == 200:
+                    repo_name = new_repo_name
+            
+            if resp.status_code == 200:
+                success_msg = f"Successfully created local repository: {repo_name}"
+                print(success_msg)
+                success_file.write(f"{success_msg}\n")
+                
+                # If we have a project key, assign it to the project
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(repo_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        return repo_name, resp, False  # Return False to indicate project assignment failed
+                    else:
+                        success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+            
+            return repo_name, resp, True
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
@@ -1419,66 +1670,762 @@ class FederationHelper:
                 try:
                     result = future.result()
                     if result:
-                        repo_name, resp = result
+                        repo_name, resp, project_success = result
                         if resp.status_code != 200:
                             error_msg = f"Failed to create local repository {repo_name}: {resp.status_code} - {resp.text}"
                             print(error_msg)
                             error_file.write(f"{error_msg}\n")
                             failed_repos.append(repo_name)
-                        else:
-                            success_msg = f"Successfully created local repository: {repo_name}"
-                            print(success_msg)
-                            success_file.write(f"{success_msg}\n")
+                        elif not project_success:
+                            failed_repos.append(repo_name)  # Add to failed list if project assignment failed
                 except Exception as e:
                     repo_name = future_to_repo[future]
-                    print(f"Error processing repository {repo_name}: {str(e)}")
-                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    error_msg = f"Error processing repository {repo_name}: {str(e)}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
                     failed_repos.append(repo_name)
         
         if failed_repos:
             failed_repos_str = ";".join(sorted(failed_repos))
-            print("\nFailed local repositories (semicolon-separated):")
-            print(failed_repos_str)
-            error_file.write("\nFailed local repositories (semicolon-separated):\n")
-            error_file.write(failed_repos_str)
+            error_msg = "\nFailed local repositories (semicolon-separated):\n" + failed_repos_str
+            print(error_msg)
+            error_file.write(error_msg + "\n")
         
         error_file.close()
         success_file.close()
 
-    def create_missing_remotes_on_target_parallel(self, max_workers=4, environment=None):
-        """Create missing remote repositories in parallel"""
+    def create_missing_remotes_on_target(self):
         print("Creating missing remote repositories for", self.rt2.name)
         error_file = open('./create_remote_errors.log', 'w')
         success_file = open('./create_remote_success.log', 'w')
+        for repo_name in self.rt1.remote_configs.keys():
+            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.remote_configs.keys():
+                repo = self.rt1.remote_configs[repo_name]
+                print(repo_name)
+
+                headers = {'content-type': 'application/json', }
+                repo["rclass"] = "remote"
+                repo["password"] = ""
+                repo["dockerApiVersion"] = "V2"
+                resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
+                                    headers=self.headers, debug=self.debug)
+                if resp.status_code != 200:
+                    print("Non-200 response:", resp.status_code)
+                    print(resp.text)
+                    error_file.write(repo_name)
+                    error_file.write(" | ")
+                    error_file.write(resp.text)
+                    error_file.write('\n')
+                else:
+                    print("Success for", repo_name)
+                    success_file.write(resp.text)
+                    success_file.write('\n')
+
+    def create_missing_virtuals_on_target_parallel(self, max_workers=4, environment=None):
+        """Create missing virtual repositories on target in parallel"""
+        print("Creating missing virtual repositories for", self.rt2.name)
+        error_file = open('./create_virtual_errors.log', 'w')
+        success_file = open('./create_virtual_success.log', 'w')
         
         failed_repos = []
         
-        # Get list of repos to create
-        repos_to_create = {
-            repo_name: repo_config 
-            for repo_name, repo_config in self.rt1.remote_configs.items()
-            if repo_name not in SYSTEM_REPOS and repo_name not in self.rt2.remote_configs
-        }
+        # Get filtered list of repos to create
+        repos_to_create = self.get_filtered_repos_to_create(
+            self.rt1.virtual_configs, 
+            self.rt2.virtual_configs
+        )
         
-        print(f"Found {len(repos_to_create)} remote repositories to create")
+        print(f"Found {len(repos_to_create)} virtual repositories to create")
         
-        def create_single_remote(repo_name, repo_config):
-            repo = repo_config.copy()
-            repo["rclass"] = "remote"
-            repo["password"] = ""  # Clear password for safety
+        def create_single_virtual(repo_name, repo_config):
+            repo = repo_config.copy()  # Create a copy to avoid modifying the original
+            
+            # Check for dependent repositories
+            missing_deps = []
+            if "repositories" in repo:
+                for dep_repo in repo["repositories"]:
+                    # Check if dependent repo exists in target using check_repo_exists
+                    if not self.rt2.check_repo_exists(dep_repo, repo["packageType"]):
+                        missing_deps.append(dep_repo)
+                        print(f"Warning: Dependent repository {dep_repo} for virtual repo {repo_name} does not exist")
+            
+            if missing_deps:
+                error_msg = f"Cannot create virtual repository {repo_name} - missing dependent repositories: {', '.join(missing_deps)}"
+                print(error_msg)
+                error_file.write(f"{error_msg}\n")
+                return repo_name, None, False
+            
+            # Store project key if it exists and remove it from config
+            project_key = repo.pop("projectKey", None)
+            
+            repo["rclass"] = "virtual"
             repo["dockerApiVersion"] = "V2"
+            
+            # Set default values if not provided
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
             
             # Set environment if provided
             if environment:
                 repo["environments"] = [environment]
             
+            # Handle Docker repository naming convention
+            if (repo["packageType"] == "docker"):
+                
+                # Replace underscores with hyphens in repo name
+                new_repo_name = repo_name.replace('_', '-')
+                repo["key"] = new_repo_name
+                
+                # Check if repository with hyphenated name already exists
+                if self.rt2.check_repo_exists(new_repo_name, repo["packageType"]):
+                    error_msg = f"Repository {new_repo_name} already exists in target"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    return repo_name, None, False
+                
+                # Replace underscores in repositories list
+                if "repositories" in repo:
+                    repo["repositories"] = [r.replace('_', '-') for r in repo["repositories"]]
+                
+                # Replace underscores in defaultDeploymentRepo
+                if "defaultDeploymentRepo" in repo:
+                    repo["defaultDeploymentRepo"] = repo["defaultDeploymentRepo"].replace('_', '-')
+                
+                print(f"Modified Docker repository name from {repo_name} to {new_repo_name}")
+                repo_name = new_repo_name
+            
+            # Create the repository
             resp = requests.put(
                 f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
                 json=repo,
                 headers=self.rt2.headers,
                 verify=False
             )
-            return repo_name, resp
+
+            if resp.status_code == 200:
+                success_msg = f"Successfully created virtual repository: {repo_name}"
+                print(success_msg)
+                success_file.write(f"{success_msg}\n")
+                
+                # If we have a project key, assign it to the project
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(repo_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        return repo_name, resp, False
+                    else:
+                        success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(create_single_virtual, repo_name, repo_config): repo_name
+                for repo_name, repo_config in repos_to_create.items()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp, project_success = result
+                        if resp is None or resp.status_code != 200:
+                            error_msg = f"Failed to create virtual repository {repo_name}"
+                            if resp:
+                                error_msg += f": {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                            failed_repos.append(repo_name)
+                        elif not project_success:
+                            failed_repos.append(repo_name)  # Add to failed list if project assignment failed
+                except Exception as e:
+                    repo_name = future_to_repo[future]
+                    error_msg = f"Error processing repository {repo_name}: {str(e)}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    failed_repos.append(repo_name)
+        
+        if failed_repos:
+            failed_repos_str = ";".join(sorted(failed_repos))
+            error_msg = "\nFailed virtual repositories (semicolon-separated):\n" + failed_repos_str
+            print(error_msg)
+            error_file.write(error_msg + "\n")
+        
+        error_file.close()
+        success_file.close()
+
+    def update_federated_members(self, repo_filter=False):
+        print("Updating member repositories for", self.rt1.name)
+        for repo_name in self.rt1.federated.keys():
+            if repo_filter:
+                if repo_name not in repos_to_do:
+                    continue
+
+
+            if repo_name not in SYSTEM_REPOS:
+
+                repo = self.rt1.federated[repo_name]
+                repo["members"] = [{"url": self.rt2.url + "/" + repo_name, "enabled": "true"}]
+                headers = {'content-type': 'application/json', }
+                resp = requests.post(self.rt1.url + "/artifactory/api/repositories/" + repo_name, json=repo,
+                                    headers=self.headers, debug=self.debug)
+                if resp.status_code != 201:
+                    print("Non-201 response:", resp.status_code)
+                    print(resp.text)
+                else:
+                    print("success")
+
+        print("Updating member repositories for", self.rt2.name)
+        for repo_name in self.rt2.federated.keys():
+            if repo_name not in SYSTEM_REPOS:
+
+                repo = self.rt2.federated[repo_name]
+                repo["members"] = [{"url": self.rt1.url + "/" + repo_name, "enabled": "true"}]
+                headers = {'content-type': 'application/json', }
+                resp = requests.post(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
+                                    headers=self.headers, debug=self.debug)
+                if resp.status_code != 201:
+                    print("Non-201 response:", resp.status_code)
+                    print(resp.text)
+                else:
+                    print("success")
+
+    def refresh_storage_summary(self):
+        print("Refreshing storage summary for", self.rt1.name)
+        self.rt1.refresh_storage_summary()
+        print("Refreshing storage summary for", self.rt2.name)
+        self.rt2.refresh_storage_summary()
+
+    def federate_one(self, repo_name):
+        repo = self.rt1.federated[repo_name]
+        repo["members"] = [{"url": self.rt1.url + "/" + repo_name, "enabled": "true"}]
+        headers = {'content-type': 'application/json', }
+        repo["rclass"] = "federated"
+        print("Creating repo in target")
+        resp = requests.put(self.rt2.url + "/artifactory/api/repositories/" + repo_name, json=repo,
+                            headers=self.headers, debug=self.debug)
+        if resp.status_code != 201:
+            print("Non-201 response:", resp.status_code)
+            print(resp.text)
+        else:
+            print("success")
+
+        print("Updating repo in source")
+        repo = self.rt1.federated[repo_name]
+        repo["members"] = [{"url": self.rt2.url + "/" + repo_name, "enabled": "true"}]
+        headers = {'content-type': 'application/json', }
+        resp = requests.post(self.rt1.url + "/artifactory/api/repositories/" + repo_name, json=repo,
+                            headers=self.headers, debug=self.debug)
+        if resp.status_code != 201:
+            print("Non-201 response:", resp.status_code)
+            print(resp.text)
+        else:
+            print("success")
+
+        print("Triggering Configuration Sync on source")
+        r = requests.post(self.rt1.url + "/artifactory/api/federation/configSync/{}".format( repo["repoKey"]), headers=self.headers, verify=False)
+        if resp.status_code != 200:
+            print("Non-200 response:", resp.status_code)
+            print(resp.text)
+        else:
+            print("success")
+
+        print("Triggering Full Sync on source")
+        r = requests.post(self.rt1.url + "/artifactory/api/federation/fullSync/{}".format( repo["repoKey"]), headers=self.headers, verify=False)
+        if resp.status_code != 200:
+            print("Non-200 response:", resp.status_code)
+            print(resp.text)
+        else:
+            print("success")
+
+    def federate_all(self, repo_filter=False):
+        for repo_name in self.rt1.federated.keys():
+            if repo_filter:
+                if repo_name not in repos_to_do:
+                    continue
+
+            if repo_name not in SYSTEM_REPOS:
+                self.federate_one(repo_name)
+
+    def update_virtuals_on_target_parallel(self, dry=False, max_workers=4):
+        """Update virtual repository configurations in target in parallel"""
+        print("\nChecking virtual repository configurations...")
+        error_file = open('./update_virtual_errors.log', 'w')
+        success_file = open('./update_virtual_success.log', 'w')
+        
+        def update_single_virtual(repo):
+            repo_name = repo["key"]
+            repo_refs = repo["repositories"]
+            
+            if not self.rt2.check_repo_exists(repo_name, repo["packageType"]):
+                print(f"Repository {repo_name} does not exist in target.")
+                return None
+                
+            target_repo = resp.json()
+            target_repo_refs = target_repo.get("repositories", [])
+            
+            repo_refs = sorted(repo_refs)
+            target_repo_refs = sorted(target_repo_refs)
+            
+            if repo_refs != target_repo_refs:
+                print(f"\nFound different members for repo {repo_name}")
+                print("Source members:", repo_refs)
+                print("Target members:", target_repo_refs)
+                
+                if not dry:
+                    repo["rclass"] = "virtual"
+                    resp = requests.post(
+                        f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                        json=repo,
+                        headers=self.rt2.headers,
+                        verify=False
+                    )
+                    return repo_name, resp
+            return None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_repo = {
+                executor.submit(update_single_virtual, repo): repo["key"]
+                for repo in self.rt1.repository_configurations.get('VIRTUAL', [])
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_repo):
+                try:
+                    result = future.result()
+                    if result:
+                        repo_name, resp = result
+                        if resp.status_code != 200:
+                            error_msg = f"Failed to update virtual repository {repo_name}: {resp.status_code} - {resp.text}"
+                            print(error_msg)
+                            error_file.write(f"{error_msg}\n")
+                        else:
+                            success_msg = f"Successfully updated virtual repository: {repo_name}"
+                            print(success_msg)
+                            success_file.write(f"{success_msg}\n")
+                except Exception as e:
+                    print(f"Error processing repository {future_to_repo[future]}: {str(e)}")
+                    error_file.write(f"{future_to_repo[future]} | Exception: {str(e)}\n")
+        
+        error_file.close()
+        success_file.close()
+
+    # Xray stuff
+    def update_all_xray_data(self):
+        self.rt1.load_xray_data()
+        self.rt2.load_xray_data()
+
+    def report_watches_policies(self):
+
+        self.update_all_xray_data()
+
+        print("Doing", len(self.rt1.xray_policies), "policies.")
+        for policy in self.rt1.xray_policies:
+            policy_name = policy["name"]
+            rt2_policy = requests.get(self.rt2.url + "/xray/api/v2/policies/" + policy_name, headers=self.headers,
+                                      verify=False)
+            if rt2_policy.status_code == 404:
+                print("Policy", policy_name, "doesn't exist in target Artifactory")
+            elif rt2_policy.status_code == 200:
+                # The policy may still be different (author, creation date, and modification date will
+                target_policy = rt2_policy.json()
+                if target_policy["rules"] == policy["rules"]:
+                    # Rules are the same
+                    try:
+                        if target_policy["description"] == policy["description"]:
+                            print("Policy", policy_name, "already exists. They are the same")
+                        else:
+                            print("Policy", policy_name, "already exists. Descriptions are not the same, needs updating.")
+                    except KeyError:
+                        # Sometimes there is no description. that's fine.
+                        print("Policy", policy_name, "already exists. They are the same")
+                else:
+                    print("Policy", policy_name, "already exists. Rules are the not same, needs updating.")
+
+            else:
+                print("Error for policy", policy_name, "unexpected status code", rt2_policy.status_code)
+
+        print("Doing", len(self.rt1.xray_watches), "watches.")
+        for watch in self.rt1.xray_watches:
+            watch_name = watch["general_data"]["name"]
+            rt2_watch = requests.get(self.rt2.url + "/xray/api/v2/watches/" + watch_name, headers=self.headers, verify=False)
+            if rt2_watch.status_code == 404:
+                print("Watch", watch_name,  "doesn't exist in target Artifactory")
+
+            elif rt2_watch.status_code == 200:
+                target_watch = rt2_watch.json()
+                is_diff = False
+                try:
+                    target_res = []
+                    for i in target_watch["project_resources"]["resources"]:
+                        target_res.append(i["name"])
+
+                    source_res = []
+                    for i in watch["project_resources"]["resources"]:
+                        source_res.append(i["name"])
+
+                    target_res = set(target_res)
+                    source_res = set(source_res)
+                    diff = source_res-target_res
+
+                    if len(diff) != 0:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_watch["assigned_policies"] != watch["assigned_policies"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_watch["watch_recipients"] != watch["watch_recipients"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+
+                if is_diff:
+                    print("Watch", watch_name, "already exists, but it's not the same. Needs update.")
+                else:
+                    print("Watch", watch_name, "already exists.")
+
+            else:
+                print("Error for watch", watch_name, "unexpected status code", rt2_watch.status_code)
+
+        print("Doing", len(self.rt1.xray_ignore_rules["data"]), "ignore rules.")
+
+        for rule in self.rt1.xray_ignore_rules["data"]:
+            rule_id = rule["id"]
+            rt2_rule = requests.get(self.rt2.url + "/xray/api/v1/ignore_rules/" + rule_id, headers=self.headers,
+                                     verify=False)
+            if rt2_rule.status_code == 404:
+                print("Rule", rule_id, "doesn't exist in target Artifactory")
+
+            elif rt2_rule.status_code == 200:
+                target_rule = rt2_rule.json()
+                is_diff = False
+                try:
+                    target_comps = []
+                    for i in target_rule["components"]:
+                        target_comps.append(i["name"])
+
+                    source_comps = []
+                    for i in rule["components"]:
+                        source_comps.append(i["name"])
+
+                    target_comps = set(target_comps)
+                    source_comps = set(source_comps)
+                    diff = source_comps - target_comps
+
+                    if len(diff) != 0:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_rule["licenses"] != rule["licenses"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_rule["watches"] != rule["watches"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+
+                if is_diff:
+                    print("Rule", rule_id, "already exists, but it's not the same. Needs update.")
+                else:
+                    print("Rule", rule_id, "already exists.")
+
+            else:
+                print("Error for rule", rule_id, "unexpected status code", rt2_rule.status_code)
+
+    def create_missing_and_update_policies(self):
+        self.update_all_xray_data()
+        for policy in self.rt1.xray_policies:
+            policy_name = policy["name"]
+            rt2_policy = requests.get(self.rt2.url + "/xray/api/v2/policies/" + policy_name, headers=self.headers, verify=False)
+            if rt2_policy.status_code == 404:
+                print("Policy", policy_name, "doesn't exist in target Artifactory, need to create.")
+                headers = {'content-type': 'application/json', }
+                resp = requests.post(self.rt2.url + "/xray/api/v2/policies", json=policy,
+                                    headers=self.headers)
+                if resp.status_code == 200:
+                    print(resp.text)
+                else:
+                    print("Non 200 status code", resp.status_code)
+                    print(resp.text)
+            elif rt2_policy.status_code == 200:
+                # The policy may still be different (author, creation date, and modification date will
+                target_policy = rt2_policy.json()
+                if target_policy["rules"] == policy["rules"]:
+                    # Rules are the same
+                    try:
+                        if target_policy["description"] == policy["description"]:
+                            print("Policy", policy_name, "already exists. They are the same")
+                        else:
+                            print("Policy", policy_name,
+                                  "already exists. Descriptions are not the same, needs updating.")
+                            headers = {'content-type': 'application/json', }
+                            resp = requests.put(self.rt2.url + "/xray/api/v2/policies/" + policy_name, json=policy,
+                                                headers=self.headers)
+
+                            if resp.status_code == 200:
+                                print("Success updating", policy_name)
+                            else:
+                                print("Non 200 status code while updating", policy_name)
+                    except KeyError:
+                        # Sometimes there is no description. that's fine.
+                        print("Policy", policy_name, "already exists. They are the same")
+                else:
+                    print("Policy", policy_name, "already exists. Rules are the not same, needs updating.")
+                    headers = {'content-type': 'application/json', }
+                    resp = requests.put(self.rt2.url + "/xray/api/v2/policies/" + policy_name, json=policy,
+                                         headers=self.headers)
+
+                    if resp.status_code == 200:
+                        print("Success updating", policy_name)
+                    else:
+                        print("Non 200 status code", resp.status_code ,"while updating", policy_name)
+
+            else:
+                print("Error for policy", policy_name, "unexpected status code", rt2_policy.status_code)
+
+    def create_missing_and_update_watches(self):
+        self.update_all_xray_data()
+        for watch in self.rt1.xray_watches:
+            watch_name = watch["general_data"]["name"]
+            rt2_watch = requests.get(self.rt2.url + "/xray/api/v2/watches/" + watch_name, headers=self.headers, verify=False)
+            if rt2_watch.status_code == 404:
+                print("Watch", watch_name, "doesn't exist in target Artifactory, need to create.")
+                headers = {'content-type': 'application/json', }
+                resp = requests.post(self.rt2.url + "/xray/api/v2/watches", json=watch,
+                                    headers=self.headers)
+                if resp.status_code == 201:
+                    print(resp.text)
+                else:
+                    print("Non 201 status code", resp.status_code)
+                    print(resp.text)
+            elif rt2_watch.status_code == 200:
+                target_watch = rt2_watch.json()
+                is_different = False
+
+                try:
+                    target_res = []
+                    for i in target_watch["project_resources"]["resources"]:
+                        target_res.append(i["name"])
+
+                    source_res = []
+                    for i in watch["project_resources"]["resources"]:
+                        source_res.append(i["name"])
+
+                    target_res = set(target_res)
+                    source_res = set(source_res)
+                    diff = source_res-target_res
+
+                    if len(diff) != 0:
+                        is_different = True
+
+                except KeyError:
+                    pass
+
+                try:
+                    if target_watch["watch_recipients"] != watch["watch_recipients"]:
+                        is_different = True
+                except KeyError:
+                    # print("No watch recipients")
+                    pass
+                try:
+                    if target_watch["assigned_policies"] != watch["assigned_policies"]:
+                        is_different = True
+                except KeyError:
+                    pass
+                    # print("No assigned policies")
+
+                if is_different:
+                    print("Watch", watch_name, "already exists, but it's not the same. Needs update.")
+                    headers = {'content-type': 'application/json', }
+                    resp = requests.put(self.rt2.url + "/xray/api/v2/watches/" + watch_name, json=watch,
+                                        headers=self.headers)
+                    if resp.status_code == 200:
+                        print("Success updating", watch_name)
+                    else:
+                        print("Non 200 status code", resp.status_code, "while updating", watch_name)
+                else:
+                    print("Watch", watch_name, "already exists.")
+
+            else:
+                print("Error for watch", watch_name, "unexpected status code", rt2_watch.status_code)
+
+    def create_missing_and_update_ignore_rules(self):
+        self.update_all_xray_data()
+        for rule in self.rt1.xray_ignore_rules["data"]:
+            rule_id = rule["id"]
+            rt2_rule = requests.get(self.rt2.url + "/xray/api/v1/ignore_rules/" + rule_id, headers=self.headers,
+                                    verify=False)
+            if rt2_rule.status_code == 404:
+                print("Ignore Rule", rule_id, "doesn't exist in target Artifactory, need to create.")
+                headers = {'content-type': 'application/json', }
+                resp = requests.post(self.rt2.url + "/xray/api/v1/ignore_rules", json=rule,
+                                    headers=self.headers)
+                if resp.status_code == 201:
+                    print("Success creating", rule_id)
+                else:
+                    print("Non 201 status code", resp.status_code,  "for Ignore Rule", rule_id)
+                    print(resp.text)
+            elif rt2_rule.status_code == 200:
+                target_rule = rt2_rule.json()
+                is_diff = False
+                try:
+                    target_comps = []
+                    for i in target_rule["components"]:
+                        target_comps.append(i["name"])
+
+                    source_comps = []
+                    for i in rule["components"]:
+                        source_comps.append(i["name"])
+
+                    target_comps = set(target_comps)
+                    source_comps = set(source_comps)
+                    diff = source_comps - target_comps
+
+                    if len(diff) != 0:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_rule["licenses"] != rule["licenses"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+                try:
+                    if target_rule["watches"] != rule["watches"]:
+                        is_diff = True
+                except KeyError:
+                    pass
+                    # print("No assigned policies")
+
+                if is_diff:
+                    print("Ignore Rule", rule_id, "already exists, but it's not the same. Needs update.")
+                    headers = {'content-type': 'application/json', }
+                    print("Deleting Ignore Rule in Target:", rule_id)
+                    resp = requests.delete(self.rt2.url + "/xray/api/v1/ignore_rules/" + rule_id, json=rule,
+                                        headers=self.headers)
+                    if resp.status_code == 204:
+                        print("Success udeleting", rule_id)
+                    else:
+                        print("Non 200 status code", resp.status_code, "while deleting", rule_id)
+                    print("Creating Ignore Rule in Target:", rule_id)
+                    headers = {'content-type': 'application/json', }
+                    resp = requests.post(self.rt2.url + "/xray/api/v1/ignore_rules", json=rule,
+                                         headers=self.headers)
+                    if resp.status_code == 201:
+                        print("Success creating", rule_id)
+                    else:
+                        print("Non 201 status code", resp.status_code, "for Ignore Rule", rule_id)
+                        print(resp.text)
+
+                else:
+                    print("Ignore Rule", rule_id, "already exists.")
+
+            else:
+                print("Error for Ignore Rule", rule_id, "unexpected status code", rt2_rule.status_code)
+
+    def create_missing_remotes_on_target_parallel(self, max_workers=4, environment=None):
+        """Create missing remote repositories on target in parallel"""
+        print("Creating missing remote repositories for", self.rt2.name)
+        error_file = open('./create_remote_errors.log', 'w')
+        success_file = open('./create_remote_success.log', 'w')
+        
+        failed_repos = []
+        
+        # Get filtered list of repos to create
+        repos_to_create = self.get_filtered_repos_to_create(
+            self.rt1.remote_configs, 
+            self.rt2.remote_configs
+        )
+        
+        print(f"Found {len(repos_to_create)} remote repositories to create")
+        
+        def create_single_remote(repo_name, repo_config):
+            repo = repo_config.copy()  # Create a copy to avoid modifying the original
+            
+            # Store project key if it exists and remove it from config
+            project_key = repo.pop("projectKey", None)
+            
+            repo["rclass"] = "remote"
+            repo["password"] = ""  # Clear password for safety
+            repo["dockerApiVersion"] = "V2"
+            
+            # Set default values if not provided
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
+            
+            # Set environment if provided
+            if environment:
+                repo["environments"] = [environment]
+            
+            # First attempt with original name and without projectkey
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{repo_name}",
+                json=repo,
+                headers=self.rt2.headers,
+                verify=False
+            )
+                    # If creation fails with illegal character error for Docker repos, try with hyphens
+            if (resp.status_code == 400 and 
+                repo["packageType"] == "docker" and 
+                "Illegal character: '_'" in resp.text):
+                
+                error_msg = f"Docker repository creation failed due to underscore in name: {repo_name}"
+                print(error_msg)
+                error_file.write(f"{error_msg}\n")
+                error_file.write(f"Response: {resp.status_code} - {resp.text}\n")
+                
+                # Replace underscores with hyphens in repo name and config
+                new_repo_name = repo_name.replace('_', '-')
+                repo["key"] = new_repo_name
+                
+                print(f"Retrying with modified name: {new_repo_name}")
+                
+                # Check if repository with hyphenated name already exists
+                if self.rt2.check_repo_exists(new_repo_name, repo["packageType"]):
+                    error_msg = f"Repository {new_repo_name} already exists in target"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
+                    return repo_name, None, False  # Return False to indicate project assignment failed
+                
+                # Retry with modified name
+                resp = requests.put(
+                    f"{self.rt2.url}/artifactory/api/repositories/{new_repo_name}",
+                    json=repo,
+                    headers=self.rt2.headers,
+                    verify=False
+                )
+                
+                # Update repo_name for further processing if successful
+                if resp.status_code == 200:
+                    repo_name = new_repo_name    
+            # If repository creation was successful and we have a project key, assign it to the project
+            if resp.status_code == 200:
+                success_msg = f"Successfully created remote repository: {repo_name}"
+                print(success_msg)
+                success_file.write(f"{success_msg}\n")
+                
+                # If we have a project key, assign it to the project
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(repo_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {repo_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        error_file.write(f"{error_msg}\n")
+                        return repo_name, resp, False  # Return False to indicate project assignment failed
+                    else:
+                        success_msg = f"Successfully assigned repository {repo_name} to project {project_key}"
+                        print(success_msg)
+                        success_file.write(f"{success_msg}\n")
+        
+            return repo_name, resp, True
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_repo = {
@@ -1490,28 +2437,26 @@ class FederationHelper:
                 try:
                     result = future.result()
                     if result:
-                        repo_name, resp = result
+                        repo_name, resp, project_success = result
                         if resp.status_code != 200:
                             error_msg = f"Failed to create remote repository {repo_name}: {resp.status_code} - {resp.text}"
                             print(error_msg)
                             error_file.write(f"{error_msg}\n")
                             failed_repos.append(repo_name)
-                        else:
-                            success_msg = f"Successfully created remote repository: {repo_name}"
-                            print(success_msg)
-                            success_file.write(f"{success_msg}\n")
+                        elif not project_success:
+                            failed_repos.append(repo_name)  # Add to failed list if project assignment failed
                 except Exception as e:
                     repo_name = future_to_repo[future]
-                    print(f"Error processing repository {repo_name}: {str(e)}")
-                    error_file.write(f"{repo_name} | Exception: {str(e)}\n")
+                    error_msg = f"Error processing repository {repo_name}: {str(e)}"
+                    print(error_msg)
+                    error_file.write(f"{error_msg}\n")
                     failed_repos.append(repo_name)
         
         if failed_repos:
             failed_repos_str = ";".join(sorted(failed_repos))
-            print("\nFailed remote repositories (semicolon-separated):")
-            print(failed_repos_str)
-            error_file.write("\nFailed remote repositories (semicolon-separated):\n")
-            error_file.write(failed_repos_str)
+            error_msg = "\nFailed remote repositories (semicolon-separated):\n" + failed_repos_str
+            print(error_msg)
+            error_file.write(error_msg + "\n")
         
         error_file.close()
         success_file.close()
@@ -1791,7 +2736,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_locals_on_target(self, dry=False, max_workers=4):
+    def update_locals_on_target_parallel(self, dry=False, max_workers=4):
         """Update local repository configurations in target in parallel"""
         print("\nChecking local repository configurations...")
         error_file = open('./update_local_errors.log', 'w')
@@ -1846,7 +2791,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_remotes_on_target(self, dry=False, max_workers=4):
+    def update_remotes_on_target_parallel(self, dry=False, max_workers=4):
         """Update remote repository configurations in target in parallel"""
         print("\nChecking remote repository configurations...")
         error_file = open('./update_remote_errors.log', 'w')
@@ -1908,7 +2853,7 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
-    def update_federated_repos_on_target(self, dry=False, max_workers=4):
+    def update_federated_repos_on_target_parallel(self, dry=False, max_workers=4):
         """Update federated repository configurations in target in parallel"""
         print("\nChecking federated repository configurations...")
         error_file = open('./update_federated_errors.log', 'w')
@@ -2085,6 +3030,27 @@ class FederationHelper:
         error_file.close()
         success_file.close()
 
+    def get_filtered_repos_to_create(self, source_configs, target_configs):
+        """
+        Filter repositories that need to be created, excluding existing ones
+        Args:
+            source_configs: Dictionary of source repository configurations
+            target_configs: Dictionary of target repository configurations
+        Returns:
+            dict: Filtered dictionary of repositories to create
+        """
+        repos_to_create = {}
+        
+        for repo_name, repo_config in source_configs.items():
+            if repo_name not in SYSTEM_REPOS and repo_name not in target_configs:
+                # Check if repo exists in target (handling docker repo names)
+                if not self.rt2.check_repo_exists(repo_name, repo_config.get("packageType")):
+                    repos_to_create[repo_name] = repo_config
+                else:
+                    print(f"Repository {repo_name} already exists in target, skipping creation")
+        
+        return repos_to_create
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Sync repositories between Artifactory instances'
@@ -2251,13 +3217,13 @@ def main():
         helper.sync_projects()
 
     elif args.command == "create_missing_federated_on_target":
-        helper.create_missing_federated_on_target(max_workers=args.max_workers, environment=args.environment)
+        helper.create_missing_federated_repos_on_target_parallel(max_workers=args.max_workers, environment=args.environment)
 
     elif args.command == "create_missing_remotes_on_target":
         helper.create_missing_remotes_on_target_parallel(args.max_workers, environment=args.environment)
 
     elif args.command == "create_missing_virtuals_on_target":
-        helper.create_missing_virtuals_on_target(max_workers=args.max_workers, environment=args.environment)
+        helper.create_missing_virtuals_on_target_parallel(max_workers=args.max_workers, environment=args.environment)
 
     elif args.command == "create_missing_locals_on_target":
         helper.create_missing_locals_on_target_parallel(args.max_workers, environment=args.environment)
@@ -2269,28 +3235,28 @@ def main():
         target.print_missing_projects(source)
 
     elif args.command == "update_locals_on_target_dry":
-        helper.update_locals_on_target(dry=True, max_workers=args.max_workers)
+        helper.update_locals_on_target_parallel(dry=True, max_workers=args.max_workers)
     
     elif args.command == "update_locals_on_target":
-        helper.update_locals_on_target(dry=False, max_workers=args.max_workers)
+        helper.update_locals_on_target_parallel(dry=False, max_workers=args.max_workers)
     
     elif args.command == "update_remotes_on_target_dry":
-        helper.update_remotes_on_target(dry=True, max_workers=args.max_workers)
+        helper.update_remotes_on_target_parallel(dry=True, max_workers=args.max_workers)
     
     elif args.command == "update_remotes_on_target":
-        helper.update_remotes_on_target(dry=False, max_workers=args.max_workers)
+        helper.update_remotes_on_target_parallel(dry=False, max_workers=args.max_workers)
     
     elif args.command == "update_federated_repos_on_target_dry":
-        helper.update_federated_repos_on_target(dry=True, max_workers=args.max_workers)
+        helper.update_federated_repos_on_target_parallel(dry=True, max_workers=args.max_workers)
     
     elif args.command == "update_federated_repos_on_target":
-        helper.update_federated_repos_on_target(dry=False, max_workers=args.max_workers)
+        helper.update_federated_repos_on_target_parallel(dry=False, max_workers=args.max_workers)
 
     elif args.command == "update_virtuals_on_target":
-        helper.update_virtuals_on_target(dry=False, max_workers=args.max_workers)
+        helper.update_virtuals_on_target_parallel(dry=False, max_workers=args.max_workers)
 
     elif args.command == "update_virtuals_on_target_dry":
-        helper.update_virtuals_on_target(dry=True, max_workers=args.max_workers)
+        helper.update_virtuals_on_target_parallel(dry=True, max_workers=args.max_workers)
 
     elif args.command == "delete_repos_from_file":
         if not args.repo_list_file:
