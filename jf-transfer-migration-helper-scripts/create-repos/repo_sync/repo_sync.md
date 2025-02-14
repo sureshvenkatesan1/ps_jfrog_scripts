@@ -350,13 +350,13 @@ python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
 5. Create missing local repositories on target
 ```bash
 # Create repositories without environment
-python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
-                    --target-url $TARGET --target-token TOKEN2 \
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
                     create_missing_locals_on_target --max-workers 4
 
 # Create repositories and assign them to an environment
-python repo_sync.py --source-url $SOURCE --source-token TOKEN1 \
-                    --target-url $TARGET --target-token TOKEN2 \
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
                     create_missing_locals_on_target --max-workers 4 --environment DEV
 ```
 6. If it fails to create the repos with below message for some repos:
