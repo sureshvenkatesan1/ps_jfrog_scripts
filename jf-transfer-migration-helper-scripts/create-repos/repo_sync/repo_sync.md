@@ -394,6 +394,15 @@ python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     assign_environment --environment DEV --repo-name sv-env-test --artifactory source
 ```
+You could also create a single repo  with the environment as DEV
+# Create a single local repository
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_single_local --repo-name a.b.c.d --environment DEV
+
+Then update the repo to a different environment from the UI or using the 
+`assign_environment` command mentioned above.
+
 ---
 ### Assign environment
 8. Assign environment to one repo already in  Target Artifactory:
