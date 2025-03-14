@@ -17,6 +17,7 @@ import json
 import argparse
 import os
 import subprocess
+import sys
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Compare repository details from source and target JSON files.')
@@ -129,10 +130,15 @@ def get_docker_repo_all_uploads_files_count_and_total_size(repo_key, artifactory
     results_file = os.path.join(output_dir, f"{repo_key}.json")
     try:
         with open(results_file, "w") as output:
-            subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+            if sys.version_info >= (3, 7):  # Use `text=True` for Python 3.7+
+                subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+            else:  # Use `universal_newlines=True` for Python 3.6
+                subprocess.run(command, stdout=output, stderr=subprocess.PIPE, universal_newlines=True, check=True)
+        
         print("Command executed successfully.")
+
     except subprocess.CalledProcessError as e:
-        print("Command failed with error:", e.stderr)
+        print("Command failed with error:", e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
 
     # Parse the JSON data
     data = load_json_file(results_file)
@@ -178,10 +184,15 @@ def all_non_docker_repo_paths_in_dot_folder_count_and_total_size(repo_key, artif
     results_file = os.path.join(output_dir, f"{repo_key}.json")
     try:
         with open(results_file, "w") as output:
-            subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+            if sys.version_info >= (3, 7):  # Use `text=True` for Python 3.7+
+                subprocess.run(command, stdout=output, stderr=subprocess.PIPE, text=True, check=True)
+            else:  # Use `universal_newlines=True` for Python 3.6
+                subprocess.run(command, stdout=output, stderr=subprocess.PIPE, universal_newlines=True, check=True)
+        
         print("Command executed successfully.")
+
     except subprocess.CalledProcessError as e:
-        print("Command failed with error:", e.stderr)
+        print("Command failed with error:", e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
 
     # Parse the JSON data
     data = load_json_file(results_file)

@@ -84,6 +84,7 @@ jf rt curl  -X GET "/api/repositories?type=federated"  --server-id=source-server
 sort -o all_federated_repos_in_source.txt all_federated_repos_in_source.txt
 ```
 
+
 ## Usage
 Assume the list of repos we want to compare is  [group2_found_in_all_local_repos_in_ncr.txt](input/group2_found_in_all_local_repos_in_ncr.txt)
 
@@ -121,6 +122,8 @@ a) the  "repository.catalog" and
      and (source/target)_space_in_bytes calculation , as the files in "*_uploads" from source will not be replicated to the target artifactory instance.
 b) also for other non docker repos we need to exclude the ` {"path": {"$match": ".*"}}` , for example the `"path" : ".npm/accepts"`
 in  npm repo. .conan paths in conan repo etc
+
+**Note:** Steps 2 - 6 can be done using [script-execution.sh](script-execution.sh)
 
 7.  To download  the comparison.txt  via ssh you can run:
 
