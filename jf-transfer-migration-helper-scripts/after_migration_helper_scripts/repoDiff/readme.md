@@ -94,6 +94,11 @@ The script generates the following output files:
   sorted in descending order of lastDownloaded timestamp in UTC. If an artifact has never been downloaded,  a default timestamp of **"Jan 1, 1900, 00:00:00 UTC"** is used.
 - **all_delta_paths_with_differnt_sizes.txt**: List of paths with size , sha1 mismatches or missing in the target.
 
+## 🔁 Running `repodiff.py` for All Local Repositories
+
+The [run_repodiff_for_all_local_repos.sh](run_repodiff_for_all_local_repos.sh) script automates the process of running [repodiff.py](repodiff.py) for all local repositories in a JFrog Artifactory instance as explained in 
+[run_repodiff_for_all_local_repos.md](run_repodiff_for_all_local_repos.md)
+
 ## Alternative scripts/plugin:
 - https://git.jfrog.info/projects/PROFS/repos/ps_jfrog_scripts/browse/compare_repos
 - https://git.jfrog.info/projects/PROFS/repos/jfrog-cli-plugin-compare/browse

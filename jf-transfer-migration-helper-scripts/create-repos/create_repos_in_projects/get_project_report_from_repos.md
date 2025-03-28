@@ -6,13 +6,14 @@ This [get_project_report_from_repos.py](get_project_report_from_repos.py) script
 
 - Get project assignments for a specific repository
 - Get project assignments for all repositories of a specific type (virtual/local/remote/federated)
+- Get a detailed breakdown of repositories assigned to a specific project
 - Report includes:
   - Repository name
   - Project assignment
   - Shared with projects list
   - Shared with all projects status
   - Environment information
-- Output in  JSON format, table format, and detailed logs . See the [sample_report_output](sample_report_output) directory for an example.
+- Output in JSON format, table format, and detailed logs. See the [sample_report_output](sample_report_output) directory for an example.
 
 ## Prerequisites
 
@@ -55,6 +56,17 @@ python get_project_report_from_repos.py --repo-name your-repo-name
 python get_project_report_from_repos.py --repo-type local
 ```
 
+4. For repositories assigned to a specific project:
+
+```bash
+python get_project_report_from_repos.py --repo-type all --project-key your-project-key
+```
+
+This will output:
+- A breakdown of repositories by type (local/remote/virtual/federated)
+- A list of shared repositories
+- A semicolon-separated list of all non-virtual repositories assigned to the project
+
 ### Advanced Usage
 
 1. With custom output file:
@@ -86,42 +98,56 @@ python get_project_report_from_repos.py --repo-type remote --parallel 30
 
 ```
 --repo-name          Name of a specific repository to check (optional)
---repo-type          Type of repositories to check (local/remote/federated) (optional)
+--repo-type          Type of repositories to check (local/remote/federated/virtual/all) (optional)
 --artifactory-url    Artifactory URL (default: from ARTIFACTORY_URL env var)
 --token             Access token (default: from MYTOKEN2 env var)
 --output            Output JSON file path (default: project_report.json)
 --parallel          Number of repositories to process in parallel (default: 10)
+--project-key       Project key to filter repositories (used with --repo-type all)
 --help              Show help message and exit
 ```
 
 Note: If neither --repo-name nor --repo-type is specified, the script will generate a report for all repositories.
+The --project-key option can only be used with --repo-type all.
 
 ## Output
 
-The script generates three outputs:
+The script generates several types of output:
 
 1. Console Table Display:
-   Shows the report in an easy-to-read tabular format directly in the terminal:
+   Shows the report in an easy-to-read tabular format directly in the terminal.
 
-```
-+----------------+-------------+----------------------+------------------+--------------+
-| Repository     | Assigned To | Shared With Projects | Shared With All | Environments |
-+================+=============+======================+==================+==============+
-| aanch-deb-local| test       | project1, project2   | No              | DEV          |
-+----------------+-------------+----------------------+------------------+--------------+
-```
+2. Project-Specific Output (when using --project-key):
+   ```
+   Repositories for project myproject:
 
-2. Text Report ([project_report.txt](sample_report_output/project_report.txt) or based on specified output name):
+   Assigned repositories by type:
+   LOCAL: repo1;repo2;repo3
+   REMOTE: remote1;remote2
+   VIRTUAL: virtual1
+   FEDERATED: fed1;fed2
+
+   Shared repositories by type:
+   LOCAL: shared1;shared2
+   REMOTE: shared-remote1
+   VIRTUAL: shared-virtual1
+   FEDERATED: 
+
+   All assigned non-virtual repositories:
+   fed1;fed2;remote1;remote2;repo1;repo2;repo3
+   ```
+
+3. Text Report ([project_report.txt](sample_report_output/project_report.txt) or based on specified output name):
    - Contains the same tabular format as console display
    - Easy to read and share
    - Great for quick visual inspection
 
-3. JSON Report ([project_report.json]((sample_report_output/project_report.json)) or specified output file):
+4. JSON Report ([project_report.json]((sample_report_output/project_report.json)) or specified output file):
    - Structured data format
    - Ideal for programmatic processing
    - Contains all details in machine-readable format
 
-4. Log File ([project_report.log](sample_report_output/project_report.log)):
+5. Log File ([project_report.log](sample_report_output/project_report.log)):
    - Contains detailed information about the script execution
    - Includes any errors or warnings
    - Shows progress of repository processing
@@ -179,12 +205,12 @@ The script includes comprehensive error handling:
    - Ensure the repository exists in Artifactory
 
 ## Sample API Responses
-
-### Repository List Response
+### API [Get Repositories by Type and Project](https://jfrog.com/help/r/jfrog-rest-apis/get-repositories-by-type-and-project) Response :
 ```json
 [
   {
     "key": "aanch-deb-local",
+    "description" : "",
     "type": "LOCAL",
     "url": "http://artifactory:8082/artifactory/aanch-deb-local",
     "packageType": "Debian"
@@ -192,7 +218,9 @@ The script includes comprehensive error handling:
 ]
 ```
 
-### Project Details Response
+
+### API [Get Status of Project Repository](https://jfrog.com/help/r/jfrog-rest-apis/get-status-of-project-repository) Response:
+
 ```json
 {
   "resource_name": "aanch-deb-local",
@@ -202,3 +230,6 @@ The script includes comprehensive error handling:
   "shared_with_all_projects": false,
   "shared_read_only": false
 }
+
+### Internal UI API "/ui/api/v1/projects/<projectkey>"
+This API gives a list of all repos assigned to a project and their "environments"

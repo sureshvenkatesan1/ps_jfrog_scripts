@@ -350,6 +350,8 @@ class ArtifactoryProjectReporter:
             json.dump(full_report, f, indent=2)
         logger.info(f"Report saved to {output_file}")
 
+        return full_report
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Generate a report of repository project assignments in Artifactory',
@@ -361,6 +363,7 @@ Examples:
   %(prog)s --repo-type local                 # Get report for local repositories
   %(prog)s --repo-type virtual               # Get report for virtual repositories
   %(prog)s --repo-type remote --parallel 20  # Process 20 repositories in parallel
+  %(prog)s --repo-type all --project-key myproject  # Get semicolon-separated list of repos for project
         '''
     )
     
@@ -372,7 +375,7 @@ Examples:
     )
     group.add_argument(
         '--repo-type',
-        choices=['local', 'remote', 'federated', 'virtual'],
+        choices=['local', 'remote', 'federated', 'virtual', 'all'],
         help='Type of repositories to check'
     )
     
@@ -399,6 +402,11 @@ Examples:
         help='Number of repositories to process in parallel (default: 10)'
     )
     
+    parser.add_argument(
+        '--project-key',
+        help='Project key to filter repositories (used with --repo-type all)'
+    )
+    
     args = parser.parse_args()
     
     # Validate required parameters
@@ -406,6 +414,10 @@ Examples:
         parser.error("Artifactory URL must be provided either via --artifactory-url or ARTIFACTORY_URL environment variable")
     if not args.token:
         parser.error("Access token must be provided either via --token or MYTOKEN2 environment variable")
+    
+    # Add validation for project-key
+    if args.project_key and args.repo_type != 'all':
+        parser.error("--project-key can only be used with --repo-type all")
     
     return args
 
@@ -420,7 +432,40 @@ def main():
     else:
         repo_filter = args.repo_name if args.repo_name else args.repo_type
     
-    reporter.generate_report(repo_filter, args.output, args.parallel)
+    # If project key is provided with --repo-type all, handle specially
+    if args.repo_type == 'all' and args.project_key:
+        report = reporter.generate_report(None, args.output, args.parallel)
+        
+        # Get repositories for the specified project
+        project_data = report.get('projects', {}).get(args.project_key, {})
+        if project_data:
+            print(f"\nRepositories for project {args.project_key}:")
+            print("\nAssigned repositories by type:")
+            for repo_type in ['local', 'remote', 'virtual', 'federated']:
+                repos = project_data.get(f'assigned_repositories_{repo_type}')
+                if repos:
+                    print(f"{repo_type.upper()}: {repos}")
+            
+            print("\nShared repositories by type:")
+            for repo_type in ['local', 'remote', 'virtual', 'federated']:
+                repos = project_data.get(f'shared_repositories_{repo_type}')
+                if repos:
+                    print(f"{repo_type.upper()}: {repos}")
+
+            # Add new section for all non-virtual assigned repositories
+            non_virtual_repos = []
+            for repo_type in ['local', 'remote', 'federated']:
+                repos = project_data.get(f'assigned_repositories_{repo_type}')
+                if repos:
+                    non_virtual_repos.extend(repos.split(';'))
+            
+            if non_virtual_repos:
+                print("\nAll assigned non-virtual repositories:")
+                print(';'.join(sorted(non_virtual_repos)))
+        else:
+            logger.error(f"No data found for project {args.project_key}")
+    else:
+        reporter.generate_report(repo_filter, args.output, args.parallel)
 
 if __name__ == "__main__":
     main()
