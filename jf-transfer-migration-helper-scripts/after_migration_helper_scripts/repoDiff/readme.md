@@ -94,6 +94,14 @@ The script generates the following output files:
   sorted in descending order of lastDownloaded timestamp in UTC. If an artifact has never been downloaded,  a default timestamp of **"Jan 1, 1900, 00:00:00 UTC"** is used.
 - **all_delta_paths_with_differnt_sizes.txt**: List of paths with size , sha1 mismatches or missing in the target.
 
+Check if you have to use the URIs in the `cleanpaths.txt` or the `filepaths_nometadatafiles.txt` to
+sync the repos as metadata can be generated based on repositiory types as mentoned in 
+[Recalculating a Repository Index](https://jfrog.com/help/r/artifactory-what-does-artifactory-s-recalculate-index-option-do-and-how-do-i-keep-track-of-it/recalculating-a-repository-index)
+
+For Example:
+- [Calculate Maven Metadata](https://jfrog.com/help/r/jfrog-rest-apis/calculate-maven-metadata) .
+- [Calculate Alpine Repository Metadata](https://jfrog.com/help/r/jfrog-rest-apis/calculate-alpine-repository-metadata) etc
+
 ## 🔁 Running `repodiff.py` for All Local Repositories
 
 The [run_repodiff_for_all_local_repos.sh](run_repodiff_for_all_local_repos.sh) script automates the process of running [repodiff.py](repodiff.py) for all local repositories in a JFrog Artifactory instance as explained in 
@@ -102,6 +110,8 @@ The [run_repodiff_for_all_local_repos.sh](run_repodiff_for_all_local_repos.sh) s
 ## Alternative scripts/plugin:
 - https://git.jfrog.info/projects/PROFS/repos/ps_jfrog_scripts/browse/compare_repos
 - https://git.jfrog.info/projects/PROFS/repos/jfrog-cli-plugin-compare/browse
+
+Next fix the repo diff using scritps in [../fix_the_repoDiff](../fix_the_repoDiff)
 
 ---
 Note:
