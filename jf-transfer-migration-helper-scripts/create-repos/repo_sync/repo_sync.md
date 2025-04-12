@@ -119,6 +119,11 @@ python repo_sync.py --source-url https://source.artifactory --source-token TOKEN
                     --target-url https://target.artifactory --target-token TOKEN2 \
                     create_missing_virtuals_on_target --max-workers 8
 
+# Create repositories with new names from a file containing name tuples
+python repo_sync.py --source-url SOURCE --source-token TOKEN1 \
+                    --target-url TARGET --target-token TOKEN2 \
+                    create_repos_with_new_names --rename-file rename_mapping.txt --max-workers 8 [--environment ENV]
+
 # Refresh storage summary
 python repo_sync.py --source-url https://source.artifactory --source-token TOKEN1 \
                     --target-url https://target.artifactory --target-token TOKEN2 \
@@ -506,3 +511,18 @@ python repo_sync.py  --source-url $SOURCE --source-token $TOKEN1 \
                     --target-url $TARGET --target-token $TOKEN2 \
                     update_virtuals_on_target --max-workers 4
 ```
+
+16. If you need to create repositories with different names in the target Artifactory, create a file (e.g., `rename_mapping.txt`) with repository name tuples in the format "oldname,newname" (one per line), then run:
+
+```bash
+python repo_sync.py --source-url $SOURCE --source-token $TOKEN1 \
+                    --target-url $TARGET --target-token $TOKEN2 \
+                    create_repos_with_new_names --rename-file rename_mapping.txt --max-workers 4 [--environment ENV]
+```
+
+This command reads a file containing repository name tuples in the format "oldname,newname" (one per line) and creates new repositories in the target Artifactory with the new names, using the configuration from the old repositories in the source Artifactory. If the repository is a `virtual` it also fixes its ` "repositories" and "defaultDeploymentRepo"` if necessary and creates the virtual in the target Artifactory with the new name.
+
+This is useful when you need to rename repositories during migration or when repository naming conventions differ between source and target Artifactory instances.
+
+---
+

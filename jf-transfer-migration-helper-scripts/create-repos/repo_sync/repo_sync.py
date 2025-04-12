@@ -1790,6 +1790,161 @@ class ArtifactoryHelper:
     def create_single_federated_on_target(self, repo_name, environment=None):
         self.create_single_repository(repo_name, 'federated', environment)
 
+    def create_repos_with_new_names(self, filename, max_workers=4, environment=None):
+        """
+        Create repositories with new names based on a file containing tuples of old and new names.
+        The file should contain one tuple per line in the format "oldname,newname".
+        """
+        print(f"\nCreating repositories with new names from file: {filename}")
+        error_file = './create_renamed_repos_errors.log'
+        success_file = './create_renamed_repos_success.log'
+        
+        try:
+            with open(filename, 'r') as f:
+                repo_tuples = [line.strip().split(',') for line in f if line.strip()]
+        except FileNotFoundError:
+            print(f"Error: File {filename} not found")
+            return
+        except Exception as e:
+            print(f"Error reading file {filename}: {str(e)}")
+            return
+            
+        print(f"Found {len(repo_tuples)} repository tuples to process")
+        thread_safe_log(f"Found {len(repo_tuples)} repository tuples to process", success_file)
+        
+        # Validate the format of each tuple
+        valid_tuples = []
+        for i, tuple_data in enumerate(repo_tuples):
+            if len(tuple_data) != 2:
+                error_msg = f"Invalid format at line {i+1}: {','.join(tuple_data)}. Expected format: oldname,newname"
+                print(error_msg)
+                thread_safe_log(error_msg, error_file)
+                continue
+            old_name, new_name = tuple_data
+            if not old_name or not new_name:
+                error_msg = f"Empty repository name at line {i+1}: {','.join(tuple_data)}"
+                print(error_msg)
+                thread_safe_log(error_msg, error_file)
+                continue
+            valid_tuples.append((old_name.strip(), new_name.strip()))
+        
+        print(f"Processing {len(valid_tuples)} valid repository tuples")
+        
+        # Create a mapping of old names to new names for quick lookup
+        rename_mapping = {old_name: new_name for old_name, new_name in valid_tuples}
+        
+        # Process each repository tuple
+        for old_name, new_name in valid_tuples:
+            # Determine the repository type
+            repo_type = None
+            if old_name in self.rt1.local_configs:
+                repo_type = 'local'
+            elif old_name in self.rt1.remote_configs:
+                repo_type = 'remote'
+            elif old_name in self.rt1.virtual_configs:
+                repo_type = 'virtual'
+            elif old_name in self.rt1.federated_configs:
+                repo_type = 'federated'
+            
+            if not repo_type:
+                error_msg = f"Repository {old_name} not found in source"
+                print(error_msg)
+                thread_safe_log(error_msg, error_file)
+                continue
+            
+            # Create the repository with the new name
+            print(f"Creating {repo_type} repository: {new_name} (from {old_name})")
+            
+            # Get source configuration based on repo type
+            source_config = None
+            if repo_type == 'local':
+                source_config = self.rt1.local_configs[old_name]
+            elif repo_type == 'remote':
+                source_config = self.rt1.remote_configs[old_name]
+            elif repo_type == 'virtual':
+                source_config = self.rt1.virtual_configs[old_name]
+            elif repo_type == 'federated':
+                source_config = self.rt1.federated_configs[old_name]
+            
+            repo = source_config.copy()
+            project_key = repo.pop("projectKey", None)
+            
+            # Set common properties
+            repo["rclass"] = repo_type
+            repo["dockerApiVersion"] = "V2"
+            repo["packageType"] = repo.get("packageType", "maven")
+            repo["repoLayoutRef"] = repo.get("repoLayoutRef", "maven-2-default")
+            repo["key"] = new_name  # Set the new repository name
+            
+            if environment:
+                repo["environments"] = [environment]
+                
+            # Handle type-specific configurations
+            if repo_type == 'remote':
+                repo["password"] = ""  # Clear password for safety
+            elif repo_type == 'virtual':
+                # Check for dependent repositories
+                if "repositories" in repo:
+                    missing_deps = []
+                    for dep_repo in repo["repositories"]:
+                        # Check if the dependent repository exists with its original name
+                        if not self.rt2.check_repo_exists(dep_repo, repo["packageType"]):
+                            # Check if the dependent repository has a new name in the mapping
+                            if dep_repo in rename_mapping:
+                                new_dep_name = rename_mapping[dep_repo]
+                                if self.rt2.check_repo_exists(new_dep_name, repo["packageType"]):
+                                    # Update the dependency to use the new name
+                                    repo["repositories"][repo["repositories"].index(dep_repo)] = new_dep_name
+                                    print(f"Updated dependency {dep_repo} to use new name {new_dep_name}")
+                                    continue
+                            
+                            missing_deps.append(dep_repo)
+                            print(f"Warning: Dependent repository {dep_repo} for virtual repo {new_name} does not exist")
+                    
+                    if missing_deps:
+                        error_msg = f"Cannot create virtual repository {new_name} - missing dependent repositories: {', '.join(missing_deps)}"
+                        print(error_msg)
+                        thread_safe_log(error_msg, error_file)
+                        continue
+                
+                # Check and update defaultDeploymentRepo if it exists and has a new name in the mapping
+                if "defaultDeploymentRepo" in repo and repo["defaultDeploymentRepo"] in rename_mapping:
+                    old_default_repo = repo["defaultDeploymentRepo"]
+                    new_default_repo = rename_mapping[old_default_repo]
+                    if self.rt2.check_repo_exists(new_default_repo, repo["packageType"]):
+                        repo["defaultDeploymentRepo"] = new_default_repo
+                        print(f"Updated defaultDeploymentRepo {old_default_repo} to use new name {new_default_repo}")
+            elif repo_type == 'federated':
+                repo["members"] = [{"url": f"{self.rt1.url}/artifactory/{old_name}", "enabled": "true"}]
+                
+            # Create repository
+            resp = requests.put(
+                f"{self.rt2.url}/artifactory/api/repositories/{new_name}",
+                json=repo,
+                headers=self.rt2.headers,
+                verify=False
+            )
+            
+            if resp.status_code == 200:
+                success_msg = f"Successfully created {repo_type} repository: {new_name} (from {old_name})"
+                print(success_msg)
+                thread_safe_log(success_msg, success_file)
+                
+                if project_key:
+                    success, assign_resp = self.rt2.assign_repo_to_project(new_name, project_key)
+                    if not success:
+                        error_msg = f"Warning: Repository {new_name} created but failed to assign to project {project_key}: {assign_resp.status_code} - {assign_resp.text}"
+                        print(error_msg)
+                        thread_safe_log(error_msg, error_file)
+                    else:
+                        success_msg = f"Successfully assigned repository {new_name} to project {project_key}"
+                        print(success_msg)
+                        thread_safe_log(success_msg, success_file)
+            else:
+                error_msg = f"Failed to create {repo_type} repository {new_name} (from {old_name}): {resp.status_code} - {resp.text}"
+                print(error_msg)
+                thread_safe_log(error_msg, error_file)
+
 
 
 def parse_args():
@@ -1854,7 +2009,8 @@ def parse_args():
             'create_single_local',
             'create_single_remote', 
             'create_single_virtual',
-            'create_single_federated'
+            'create_single_federated',
+            'create_repos_with_new_names'
         ],
         help='Command to execute'
     )
@@ -1863,6 +2019,12 @@ def parse_args():
     parser.add_argument(
         '--repo-list-file',
         help='File containing repository keys to delete (one per line)'
+    )
+
+    # Add argument for repository rename file
+    parser.add_argument(
+        '--rename-file',
+        help='File containing repository name tuples in format "oldname,newname" (one per line)'
     )
 
     # Single repo-type argument for all operations (delete, assign, etc.)
@@ -2068,6 +2230,12 @@ def main():
             print("Error: --repo-name is required for create_single_federated command")
             sys.exit(1)
         helper.create_single_federated_on_target(args.repo_name, args.environment)
+
+    elif args.command == "create_repos_with_new_names":
+        if not args.rename_file:
+            print("Error: --rename-file is required for create_repos_with_new_names command")
+            sys.exit(1)
+        helper.create_repos_with_new_names(args.rename_file, args.max_workers, args.environment)
 
 
 

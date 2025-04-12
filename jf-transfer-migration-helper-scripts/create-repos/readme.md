@@ -1,3 +1,79 @@
+
+## Precheck
+Verify the Repository names in the Source Artifactory instance follows [Repository Naming Rules and Limitations](https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-naming-rules-and-limitations) :
+
+As part of the pre-checks for the migration please send the list of repositories that you have in your self hosted instance that we will migrate to SAAS  so we can find out what repositories needs to be renamed :
+If the jfrog cli is configured with your source artifactory server and run:
+```
+jf rt curl /api/repositories --server-id=source-artifactory > all_repos.json
+```
+Otherwise  use the right admin access token $MYTOKEN and $YOURSERVER and extract the same info using:
+```
+curl -k -H "Authorization: Bearer $MYTOKEN"  -XGET "https://$YOURSERVER/artifactory/api/repositories"  > all_repos.json
+```
+Please review the all_repos.json for :
+
+a) Docker repository names containing underscore:
+```
+jq 'map(select(.key | contains("_") )) | group_by(.type)[] | {type: .[0].type, repos: [.[] | .key]}' all_repos.json > all_docker_repos_with_underscore.json
+
+or
+
+jq 'map(select(.key | contains("_") and contains("docker"))) | group_by(.type)[] | {type: .[0].type, repos: [.[] | .key]}' all_repos.json > all_docker_repos_with_underscore.json
+
+```
+b) Reposiotry names with exceptions:
+```
+jq 'map(select(.key | 
+               type == "string" and 
+               (test("[\\/\\\\:|?*\"<>]") or 
+               . == "." or 
+               . == ".." or 
+               . == "&" or 
+               . == "Jfrog-usage-logs" or 
+               . == "Jfrog-billing-logs" or 
+               . == "Jfrog-logs" or 
+               . == "artifactory-build-info" or 
+               . == "artifactory-pipe-info" or 
+               . == "Auto-trashcan" or 
+               . == "jfrog-support-bundle" or 
+               . == "_intransit" or 
+               . == "Artifactory-edge-uploads" or 
+               . == "release-bundles" or 
+               startswith("Jfrog-system-reserved") or 
+               startswith("Jfrog-artifactory-system") or 
+               endswith("-cache")))) | 
+    group_by(.type)[] | 
+    {type: .[0].type, repos: [.[] | .key]}' all_repos.json 
+```
+
+c) Reposiotry name with none of the exceptions in [Repository Naming Rules and Limitations](https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-naming-rules-and-limitations) :
+```
+jq 'map(select(.key | type == "string" and 
+               test("[/\\\\:|?*\"<>]") | not and 
+               . != "." and 
+               . != ".." and 
+               . != "&" and 
+               . != "Jfrog-usage-logs" and 
+               . != "Jfrog-billing-logs" and 
+               . != "Jfrog-logs" and 
+               . != "artifactory-build-info" and 
+               . != "artifactory-pipe-info" and 
+               . != "Auto-trashcan" and 
+               . != "jfrog-support-bundle" and 
+               . != "_intransit" and 
+               . != "Artifactory-edge-uploads" and 
+               . != "release-bundles" and 
+               (type == "string" and (startswith("Jfrog-system-reserved") | not)) and 
+               (type == "string" and (startswith("Jfrog-artifactory-system") | not)) and 
+               (type == "string" and (endswith("-cache") | not)))) | 
+    group_by(.type)[] | 
+    {type: .[0].type, repos: [.[] | .key]}' all_repos.json 
+```
+
+
+---
+## Recommended Flow
 1. During phase1, kindly ask the customer to furnish a list of repositories for synchronization. 
 
 This approach is advised due to the time-consuming nature of transferring all repositories, especially if there is a large number of them, from the source (referred to as NCR) to the target Artifactory instance (referred to as NCRAtleos). The customer has provided us with the list `NCRAtleos_HighPriorityRepositories_All.08222023`.
@@ -451,3 +527,5 @@ config in the target artifactory will fail as shown below:
 So the alternative way to create repos ( especially the remote repos)  is [create-repos-during-migration.sh](create-repos-during-migration.sh) as explained in [create-repos-during-migration.md](create-repos-during-migration.md)
 
 Similarly create the remote and virtual repos from the  `remote_repos_to_create.txt` and `virtual_repos_to_create.txt` you generated in  earlier steps.
+
+---
